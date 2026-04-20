@@ -433,8 +433,8 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   }
 
   // ── Drawing / annotation layer ───────────────────────────────
-  type DrawTool = 'none' | 'pen' | 'arrow' | 'sticky' | 'text' | 'eraser'
-  type Annot = { id: string; type: 'pen'|'arrow'|'sticky'|'text'; points?: number[]; x1?: number; y1?: number; x2?: number; y2?: number; x?: number; y?: number; w?: number; h?: number; text?: string; color: string; width?: number }
+  type DrawTool = 'none' | 'pen' | 'arrow' | 'sticky' | 'text' | 'title' | 'eraser'
+  type Annot = { id: string; type: 'pen'|'arrow'|'sticky'|'text'|'title'; points?: number[]; x1?: number; y1?: number; x2?: number; y2?: number; x?: number; y?: number; w?: number; h?: number; text?: string; color: string; width?: number; fontSize?: number }
 
   const [drawTool,        setDrawTool]        = useState<DrawTool>('none')
   const [drawColor,       setDrawColor]       = useState('#5DE0E6')
@@ -499,8 +499,8 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
           const nx = x1 + t*(x2-x1), ny = y1 + t*(y2-y1)
           return (nx-cx)**2 + (ny-cy)**2 > (ERASER_RADIUS * 2) ** 2
         }
-        if (a.type === 'sticky' || a.type === 'text') {
-          const w = a.w || 140, h = a.type === 'text' ? 28 : (a.h || 90)
+        if (a.type === 'sticky' || a.type === 'text' || a.type === 'title') {
+          const w = a.w || (a.type === 'title' ? 400 : 140), h = a.type === 'text' ? 28 : a.type === 'title' ? 60 : (a.h || 90)
           return !(cx >= (a.x||0) && cx <= (a.x||0)+w && cy >= (a.y||0) && cy <= (a.y||0)+h)
         }
         return true
@@ -552,7 +552,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   }, [selectedAnnotId, activeBoardId])
 
   function translateAnnot(a: Annot, dx: number, dy: number): Annot {
-    if (a.type === 'sticky' || a.type === 'text') return { ...a, x: (a.x || 0) + dx, y: (a.y || 0) + dy }
+    if (a.type === 'sticky' || a.type === 'text' || a.type === 'title') return { ...a, x: (a.x || 0) + dx, y: (a.y || 0) + dy }
     if (a.type === 'arrow') return { ...a, x1: (a.x1||0)+dx, y1: (a.y1||0)+dy, x2: (a.x2||0)+dx, y2: (a.y2||0)+dy }
     if (a.type === 'pen') return { ...a, points: (a.points||[]).map((v,i) => v + (i%2===0 ? dx : dy)) }
     return a
@@ -577,6 +577,10 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     }
     if (drawTool === 'text') {
       saveAnnots([...annotations, { id: `a${Date.now()}`, type: 'text', x, y, text: 'Texto...', color: drawColor }])
+      return
+    }
+    if (drawTool === 'title') {
+      saveAnnots([...annotations, { id: `a${Date.now()}`, type: 'title', x, y, text: 'Título', color: drawColor, fontSize: titleSize }])
       return
     }
     if (drawTool === 'pen') {
@@ -685,12 +689,15 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     { key: 'arrow',  icon: '→',  title: 'Flecha / Conector (A)' },
     { key: 'sticky', icon: '📝', title: 'Post-it (N)' },
     { key: 'text',   icon: 'T',  title: 'Texto (X)' },
+    { key: 'title',  icon: 'H1', title: 'Título grande (H)' },
     { key: 'eraser', icon: '⌫',  title: 'Borrador — clic en elemento para eliminar (E)' },
   ]
   const DRAW_COLORS = ['#5DE0E6','#F0F4FF','#EF4444','#22C55E','#F59E0B','#A78BFA','#FEF3C7','#111827']
   const DRAW_WIDTHS = [{ w: 1, label: 'Fino' }, { w: 2, label: 'Normal' }, { w: 4, label: 'Grueso' }, { w: 8, label: 'Marcador' }]
+  const TITLE_SIZES = [{ s: 24, label: 'S' }, { s: 36, label: 'M' }, { s: 52, label: 'L' }, { s: 72, label: 'XL' }]
+  const [titleSize, setTitleSize] = useState(36)
 
-  const cursorStyle = drawTool === 'eraser' ? 'cell' : drawTool === 'pen' || drawTool === 'arrow' ? 'crosshair' : drawTool === 'sticky' || drawTool === 'text' ? 'copy' : 'default'
+  const cursorStyle = drawTool === 'eraser' ? 'cell' : drawTool === 'pen' || drawTool === 'arrow' ? 'crosshair' : drawTool === 'sticky' || drawTool === 'text' || drawTool === 'title' ? 'copy' : 'default'
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -777,6 +784,21 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
             {DRAW_COLORS.map(c => (
               <button key={c} onClick={() => setDrawColor(c)}
                 style={{ width: 18, height: 18, borderRadius: 4, background: c, border: drawColor === c ? '2px solid #fff' : '2px solid transparent', cursor: 'pointer', padding: 0 }} />
+            ))}
+          </div>
+        )}
+
+        {/* Title size selector */}
+        {drawTool === 'title' && (
+          <div style={{ display: 'flex', gap: 3, alignItems: 'center', background: 'rgba(93,224,230,.04)', borderRadius: 7, padding: '3px 5px' }}>
+            {TITLE_SIZES.map(({ s, label }) => (
+              <button key={s} onClick={() => setTitleSize(s)} title={`${s}px`}
+                style={{ width: 30, height: 28, borderRadius: 5, cursor: 'pointer', fontWeight: 900, fontSize: s > 48 ? 10 : 11, fontFamily: 'Montserrat,sans-serif',
+                  background: titleSize === s ? 'rgba(93,224,230,.18)' : 'transparent',
+                  border: titleSize === s ? '1px solid rgba(93,224,230,.5)' : '1px solid transparent',
+                  color: titleSize === s ? '#5DE0E6' : '#8899BB' }}>
+                {label}
+              </button>
             ))}
           </div>
         )}
@@ -947,6 +969,47 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                   strokeDasharray='5 3' markerEnd='url(#arrowhead)' style={{ color: drawColor }} />
               )}
             </svg>
+
+            {/* ── Title annotations ── */}
+            {annotations.filter(a => a.type === 'title').map(a => {
+              const isSel = selectedAnnotId === a.id
+              const fs = a.fontSize || 36
+              return (
+                <div key={a.id} style={{
+                  position: 'absolute', left: a.x, top: a.y, zIndex: isSel ? 22 : 17,
+                  minWidth: 200, maxWidth: 800,
+                  cursor: drawTool === 'none' ? 'grab' : drawTool === 'eraser' ? 'cell' : 'default',
+                  outline: isSel ? '2px solid rgba(93,224,230,.7)' : 'none',
+                  borderRadius: 4, padding: '4px 8px',
+                  pointerEvents: 'auto', userSelect: 'none',
+                }}
+                  onMouseDown={e => {
+                    if (drawTool === 'eraser') { saveAnnots(annotations.filter(x => x.id !== a.id)); return }
+                    if (drawTool === 'none') onAnnotMouseDown(e, a)
+                  }}
+                  onDoubleClick={e => { e.stopPropagation(); setEditAnnot(a.id) }}
+                >
+                  {editAnnot === a.id ? (
+                    <input autoFocus defaultValue={a.text || ''}
+                      onBlur={e => {
+                        saveAnnots(annotations.map(x => x.id === a.id ? { ...x, text: e.target.value } : x))
+                        setEditAnnot(null)
+                      }}
+                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                      style={{ background: 'transparent', border: 'none', outline: 'none', width: '100%',
+                        fontSize: fs, fontWeight: 900, fontFamily: 'Montserrat,sans-serif', color: a.color,
+                        letterSpacing: '-0.02em', lineHeight: 1.1 }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: fs, fontWeight: 900, color: a.color, letterSpacing: '-0.02em',
+                      lineHeight: 1.1, whiteSpace: 'nowrap', display: 'block',
+                      textShadow: '0 2px 12px rgba(0,0,0,.4)' }}>
+                      {a.text || 'Título'}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
 
             {/* ── Sticky note & text annotations ── */}
             {annotations.filter(a => a.type === 'sticky' || a.type === 'text').map(a => {
