@@ -571,10 +571,6 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     if (drawTool === 'none' || drawTool === 'eraser') return
     e.stopPropagation()
     const { x, y } = canvasCoords(e)
-    if (drawTool === 'sticky') {
-      saveAnnots([...annotations, { id: `a${Date.now()}`, type: 'sticky', x, y, w: 140, h: 90, text: 'Nota...', color: '#FEF3C7' }])
-      return
-    }
     if (drawTool === 'text') {
       const id = `a${Date.now()}`
       saveAnnots([...annotations, { id, type: 'text', x, y, text: '', color: drawColor }])
