@@ -18,25 +18,16 @@ export default function LoginPage() {
     setError('')
 
     try {
-      // Custom endpoint: resuelve emails secundarios al email principal de Auth
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
       })
-      const data = await res.json()
 
-      if (!res.ok || data.error) {
-        setError(data.error || 'Correo o contraseña incorrectos')
+      if (authError) {
+        setError('Correo o contraseña incorrectos')
         setLoading(false)
         return
       }
-
-      // Establecer la sesión en el cliente Supabase
-      await supabase.auth.setSession({
-        access_token:  data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      })
 
       router.push('/dashboard')
     } catch {
