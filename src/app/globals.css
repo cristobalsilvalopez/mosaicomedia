@@ -108,3 +108,37 @@ body {
 * {
   border-color: var(--border);
 }
+
+/* ── MOBILE RESPONSIVE ───────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Full width pages */
+  [style*="padding: 24px"],
+  [style*="padding:24px"],
+  [style*="padding: 28px"],
+  [style*="padding: 32px"] {
+    padding: 16px !important;
+  }
+
+  /* Prevent horizontal overflow */
+  body { overflow-x: hidden; }
+
+  /* Make stat grids single column */
+  [style*="grid-template-columns: repeat(4"],
+  [style*="gridTemplateColumns: 'repeat(4"],
+  [style*="grid-template-columns: repeat(3"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Wider modals on mobile */
+  [style*="maxWidth: 1600"],
+  [style*="max-width: 1600px"] {
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    max-width: 100vw !important;
+  }
+
+  /* Tables scroll horizontally */
+  table { min-width: 600px; }
+  .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}

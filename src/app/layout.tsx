@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className='min-h-full flex flex-col bg-background text-foreground'>
         <ThemeProvider attribute='class' defaultTheme='dark' enableSystem={false}>
           <SidebarMount />
-          <div style={{ marginLeft: 'var(--sidebar-w, 52px)', transition: 'margin-left .2s cubic-bezier(.4,0,.2,1)' }}>{children}</div>
+          <div style={{ marginLeft: 'var(--sidebar-w, 52px)', paddingBottom: 'var(--bottom-nav-h, 0px)', transition: 'margin-left .2s cubic-bezier(.4,0,.2,1)', minHeight: '100vh' }}>{children}</div>
           <Toaster />
         </ThemeProvider>
       </body>

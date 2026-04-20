@@ -32,6 +32,15 @@ const GROUPS = [
   { key: 'sistema',  label: 'Sistema' },
 ]
 
+// Bottom nav shows the most important modules on mobile
+const BOTTOM_NAV = [
+  { key: 'dashboard',  label: 'Inicio',     icon: '🏠', path: '/dashboard' },
+  { key: 'pos',        label: 'Venta',      icon: '🛒', path: '/pos' },
+  { key: 'crm',        label: 'CRM',        icon: '👥', path: '/crm' },
+  { key: 'marketing',  label: 'Marketing',  icon: '📣', path: '/marketing' },
+  { key: 'menu',       label: 'Menú',       icon: '☰',  path: '' },
+]
+
 const COLLAPSED_W = 52
 const EXPANDED_W  = 230
 
@@ -54,27 +63,45 @@ export default function AppSidebar() {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
 
-  const [expanded,  setExpanded]  = useState(false)
-  const [pinned,    setPinned]    = useState(false)
-  const [favorites, setFavorites] = useState<string[]>([])
-  const [showTheme, setShowTheme] = useState(false)
+  const [expanded,    setExpanded]    = useState(false)
+  const [pinned,      setPinned]      = useState(false)
+  const [favorites,   setFavorites]   = useState<string[]>([])
+  const [showTheme,   setShowTheme]   = useState(false)
+  const [isMobile,    setIsMobile]    = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { setFavorites(getFavorites()) }, [])
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--sidebar-w', pinned ? `${EXPANDED_W}px` : `${COLLAPSED_W}px`)
-  }, [pinned])
+    function check() { setIsMobile(window.innerWidth < 768) }
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  useEffect(() => {
+    if (!isMobile) {
+      document.documentElement.style.setProperty('--sidebar-w', pinned ? `${EXPANDED_W}px` : `${COLLAPSED_W}px`)
+      document.documentElement.style.setProperty('--bottom-nav-h', '0px')
+    } else {
+      document.documentElement.style.setProperty('--sidebar-w', '0px')
+      document.documentElement.style.setProperty('--bottom-nav-h', '60px')
+    }
+  }, [pinned, isMobile])
+
+  // Close mobile menu on navigation
+  useEffect(() => { setMobileMenuOpen(false) }, [pathname])
 
   const isExpanded = expanded || pinned
 
   function onMouseEnter() {
-    if (pinned) return
+    if (pinned || isMobile) return
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(() => setExpanded(true), 80)
   }
   function onMouseLeave() {
-    if (pinned) return
+    if (pinned || isMobile) return
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(() => setExpanded(false), 200)
   }
@@ -91,6 +118,116 @@ export default function AppSidebar() {
     })
   }, [])
 
+  // ── MOBILE BOTTOM NAV ────────────────────────────────────────────────────────
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile full-screen menu overlay */}
+        {mobileMenuOpen && (
+          <div
+            className='fixed inset-0 z-50 bg-sidebar flex flex-col overflow-hidden'
+            style={{ fontFamily: 'Montserrat, sans-serif' }}
+          >
+            {/* Header */}
+            <div className='flex items-center justify-between px-4 h-14 border-b border-sidebar-border flex-shrink-0'>
+              <div className='flex items-center gap-2'>
+                <div className='w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black text-white'
+                  style={{ background: 'linear-gradient(135deg,#004AAD,#5DE0E6)' }}>MP</div>
+                <div>
+                  <div className='text-[13px] font-extrabold text-sidebar-foreground'>Mosaico Pro</div>
+                  <div className='text-[9px] text-sidebar-foreground/40'>Sistema de Gestión</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className='text-sidebar-foreground/50 text-2xl w-10 h-10 flex items-center justify-center'>
+                ×
+              </button>
+            </div>
+
+            {/* Nav list */}
+            <div className='flex-1 overflow-y-auto py-2'>
+              {GROUPS.map(group => {
+                const mods = MODULES.filter(m => m.group === group.key)
+                return (
+                  <div key={group.key}>
+                    {group.label && (
+                      <div className='text-[9px] font-extrabold text-sidebar-foreground/40 tracking-wider uppercase px-4 pt-3 pb-1'>
+                        {group.label}
+                      </div>
+                    )}
+                    {mods.map(m => {
+                      const isActive = pathname === m.path || pathname?.startsWith(m.path + '/')
+                      return (
+                        <div key={m.key}
+                          className={cn(
+                            'flex items-center gap-3 px-4 py-3 cursor-pointer border-l-[3px]',
+                            isActive
+                              ? 'border-sidebar-primary bg-sidebar-primary/10'
+                              : 'border-transparent active:bg-sidebar-accent'
+                          )}
+                          onClick={() => { navigate(m.path, m.key); setMobileMenuOpen(false) }}
+                        >
+                          <span className='text-xl'>{m.icon}</span>
+                          <span className={cn('text-[14px]', isActive ? 'font-bold text-sidebar-primary' : 'font-medium text-sidebar-foreground')}>
+                            {m.label}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Theme toggle */}
+            <div className='border-t border-sidebar-border px-4 py-3 flex gap-2'>
+              {(['dark', 'light'] as const).map(m => (
+                <button key={m}
+                  onClick={() => setTheme(m)}
+                  className={cn(
+                    'flex-1 py-2 text-[11px] font-bold rounded-lg border cursor-pointer',
+                    theme === m
+                      ? 'border-sidebar-primary/60 bg-sidebar-primary/20 text-sidebar-primary'
+                      : 'border-sidebar-border bg-transparent text-sidebar-foreground/50'
+                  )}>
+                  {m === 'dark' ? '🌙 Oscuro' : '☀️ Claro'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bottom nav bar */}
+        <nav className='fixed bottom-0 left-0 right-0 z-40 bg-sidebar border-t border-sidebar-border flex items-stretch h-[60px]'
+          style={{ fontFamily: 'Montserrat, sans-serif' }}>
+          {BOTTOM_NAV.map(item => {
+            const isActive = item.path && (pathname === item.path || pathname?.startsWith(item.path + '/'))
+            const isMenu = item.key === 'menu'
+            return (
+              <button key={item.key}
+                onClick={() => {
+                  if (isMenu) setMobileMenuOpen(v => !v)
+                  else navigate(item.path, item.key)
+                }}
+                className={cn(
+                  'flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer bg-transparent border-none',
+                  isActive || (isMenu && mobileMenuOpen) ? 'text-sidebar-primary' : 'text-sidebar-foreground/50'
+                )}>
+                <span className='text-xl leading-none'>{item.icon}</span>
+                <span className='text-[9px] font-bold'>{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Spacer */}
+        <div className='h-[60px] flex-shrink-0' />
+      </>
+    )
+  }
+
+  // ── DESKTOP SIDEBAR ──────────────────────────────────────────────────────────
   return (
     <>
       <div
@@ -98,7 +235,7 @@ export default function AppSidebar() {
         onMouseLeave={onMouseLeave}
         style={{ width: isExpanded ? EXPANDED_W : COLLAPSED_W }}
         className='fixed top-0 left-0 bottom-0 z-50 flex flex-col bg-sidebar border-r border-sidebar-border transition-[width] duration-200 overflow-hidden font-sans'
-        >
+      >
         {/* Logo */}
         <div
           className='h-[52px] flex items-center gap-2.5 border-b border-sidebar-border flex-shrink-0 cursor-pointer px-3'
