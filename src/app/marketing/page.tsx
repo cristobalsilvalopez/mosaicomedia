@@ -1106,9 +1106,9 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
               )
             })}
 
-            {/* Draw overlay — captures events for pen/arrow (not for select/eraser/sticky/text) */}
-            {(drawTool === 'pen' || drawTool === 'arrow') && (
-              <div data-canvas='1' style={{ position: 'absolute', inset: 0, zIndex: 25, cursor: 'crosshair' }}
+            {/* Draw overlay — captures events for all draw tools */}
+            {drawTool !== 'none' && drawTool !== 'eraser' && (
+              <div data-canvas='1' style={{ position: 'absolute', inset: 0, zIndex: 25, cursor: cursorStyle }}
                 onMouseDown={onDrawMouseDown}
                 onMouseMove={onDrawMouseMove}
                 onMouseUp={onDrawMouseUp}
