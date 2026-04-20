@@ -670,12 +670,13 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   const [viewW,   setViewW]   = useState(0);  const [viewH,  setViewH]   = useState(0)
   useEffect(() => {
     const el = outerRef.current; if (!el) return
+    const elRef = el
     function update() {
-      setScrollX(el.scrollLeft * scaleX); setScrollY(el.scrollTop * scaleY)
-      setViewW(el.clientWidth * scaleX / zoom); setViewH(el.clientHeight * scaleY / zoom)
+      setScrollX(elRef.scrollLeft * scaleX); setScrollY(elRef.scrollTop * scaleY)
+      setViewW(elRef.clientWidth * scaleX / zoom); setViewH(elRef.clientHeight * scaleY / zoom)
     }
-    update(); el.addEventListener('scroll', update); window.addEventListener('resize', update)
-    return () => { el.removeEventListener('scroll', update); window.removeEventListener('resize', update) }
+    update(); elRef.addEventListener('scroll', update); window.addEventListener('resize', update)
+    return () => { elRef.removeEventListener('scroll', update); window.removeEventListener('resize', update) }
   }, [zoom, scaleX, scaleY])
 
   const drawToolCfg: { key: DrawTool; icon: string; title: string }[] = [
