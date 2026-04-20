@@ -576,11 +576,24 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
       return
     }
     if (drawTool === 'text') {
-      saveAnnots([...annotations, { id: `a${Date.now()}`, type: 'text', x, y, text: 'Texto...', color: drawColor }])
+      const id = `a${Date.now()}`
+      saveAnnots([...annotations, { id, type: 'text', x, y, text: '', color: drawColor }])
+      setDrawTool('none')
+      setTimeout(() => setEditAnnot(id), 50)
       return
     }
     if (drawTool === 'title') {
-      saveAnnots([...annotations, { id: `a${Date.now()}`, type: 'title', x, y, text: 'Título', color: drawColor, fontSize: titleSize }])
+      const id = `a${Date.now()}`
+      saveAnnots([...annotations, { id, type: 'title', x, y, text: '', color: drawColor, fontSize: titleSize }])
+      setDrawTool('none')
+      setTimeout(() => setEditAnnot(id), 50)
+      return
+    }
+    if (drawTool === 'sticky') {
+      const id = `a${Date.now()}`
+      saveAnnots([...annotations, { id, type: 'sticky', x, y, w: 140, h: 90, text: '', color: '#FEF3C7' }])
+      setDrawTool('none')
+      setTimeout(() => setEditAnnot(id), 50)
       return
     }
     if (drawTool === 'pen') {
