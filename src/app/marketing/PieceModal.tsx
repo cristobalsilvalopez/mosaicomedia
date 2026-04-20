@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import Whiteboard, { type WBShape } from './Whiteboard'
+import { type WBShape } from './Whiteboard'
 
 const supabase = createClient()
 
@@ -96,7 +96,7 @@ export interface PieceData {
   created_at: string
 }
 
-type ModalTab = 'info' | 'script' | 'media' | 'whiteboard'
+type ModalTab = 'info' | 'script' | 'media'
 
 // ── MediaItem ─────────────────────────────────────────────────────────────────
 function MediaItem({ url, aspect, onDelete }: { url: string; aspect: string; onDelete: () => void }) {
@@ -225,10 +225,9 @@ export function PieceModal({ piece, pillars, companyId, boardId, onClose, onSave
   const formatCfg   = FORMAT_CFG[form.format]  ?? FORMAT_CFG['post']
 
   const TABS: { key: ModalTab; label: string }[] = [
-    { key: 'info',       label: 'Info' },
-    { key: 'script',     label: 'Guión' },
-    { key: 'media',      label: `Archivos${mediaUrls.length > 0 ? ` (${mediaUrls.length})` : ''}` },
-    { key: 'whiteboard', label: 'Pizarra' },
+    { key: 'info',   label: 'Info' },
+    { key: 'script', label: 'Guión' },
+    { key: 'media',  label: `Archivos${mediaUrls.length > 0 ? ` (${mediaUrls.length})` : ''}` },
   ]
 
   return (
@@ -301,8 +300,8 @@ export function PieceModal({ piece, pillars, companyId, boardId, onClose, onSave
         {/* ── Body ── */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-          {/* Left panel */}
-          <div style={{ width: 400, flexShrink: 0, borderRight: '1px solid rgba(93,224,230,.08)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Content panel — full width */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Tab bar */}
             <div style={{ display: 'flex', borderBottom: '1px solid rgba(93,224,230,.08)', background: '#0D1B2E', flexShrink: 0 }}>
               {TABS.map(t => (
@@ -518,42 +517,7 @@ export function PieceModal({ piece, pillars, companyId, boardId, onClose, onSave
                 </div>
               )}
 
-              {/* ── WHITEBOARD TAB (mobile fallback) ── */}
-              {tab === 'whiteboard' && (
-                <div style={{ padding: '16px 0', color: '#8899BB', fontSize: 13, textAlign: 'center' }}>
-                  La pizarra está disponible en el panel derecho →
-                </div>
-              )}
             </div>
-          </div>
-
-          {/* Right panel — Whiteboard */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0A1628' }}>
-            <div style={{
-              padding: '8px 14px', background: '#0D1B2E',
-              borderBottom: '1px solid rgba(93,224,230,.08)',
-              fontSize: 11, color: '#5DE0E6', fontWeight: 700,
-              letterSpacing: '.06em', textTransform: 'uppercase',
-            }}>
-              🎨 Pizarra colaborativa
-            </div>
-            {piece?.id ? (
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <Whiteboard
-                  pieceId={piece.id}
-                  companyId={companyId}
-                  initialShapes={wbShapes}
-                  onShapesChange={handleShapesChange}
-                />
-              </div>
-            ) : (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: '#556080' }}>
-                <div style={{ fontSize: 40 }}>🎨</div>
-                <div style={{ fontSize: 13, textAlign: 'center', maxWidth: 300 }}>
-                  Guarda la pieza primero para habilitar la pizarra colaborativa en tiempo real.
-                </div>
-              </div>
-            )}
           </div>
         </div>
 

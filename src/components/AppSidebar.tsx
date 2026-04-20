@@ -62,6 +62,10 @@ export default function AppSidebar() {
 
   useEffect(() => { setFavorites(getFavorites()) }, [])
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-w', pinned ? `${EXPANDED_W}px` : `${COLLAPSED_W}px`)
+  }, [pinned])
+
   const isExpanded = expanded || pinned
 
   function onMouseEnter() {

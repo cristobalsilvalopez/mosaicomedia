@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className='min-h-full flex flex-col bg-background text-foreground'>
         <ThemeProvider attribute='class' defaultTheme='dark' enableSystem={false}>
           <SidebarMount />
-          <div style={{ marginLeft: 52 }}>{children}</div>
+          <div style={{ marginLeft: 'var(--sidebar-w, 52px)', transition: 'margin-left .2s cubic-bezier(.4,0,.2,1)' }}>{children}</div>
           <Toaster />
         </ThemeProvider>
       </body>
