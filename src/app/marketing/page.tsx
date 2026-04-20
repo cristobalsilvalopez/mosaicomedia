@@ -444,6 +444,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   const [selectedAnnotId, setSelectedAnnotId] = useState<string | null>(null)
   const drawingRef    = useRef<{ type: DrawTool; points?: number[]; x1?: number; y1?: number } | null>(null)
   const annotDragRef  = useRef<{ id: string; startMX: number; startMY: number; orig: Annot } | null>(null)
+  const drawPlacedRef = useRef(false)
   const [inProgressDraw, setInProgressDraw]   = useState<Annot | null>(null)
 
   useEffect(() => {
@@ -571,25 +572,15 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     if (drawTool === 'none' || drawTool === 'eraser') return
     e.stopPropagation()
     const { x, y } = canvasCoords(e)
-    if (drawTool === 'text') {
+    if (drawTool === 'text' || drawTool === 'title' || drawTool === 'sticky') {
+      if (drawPlacedRef.current) return
+      drawPlacedRef.current = true
       const id = `a${Date.now()}`
-      saveAnnots([...annotations, { id, type: 'text', x, y, text: '', color: drawColor }])
+      if (drawTool === 'text')   saveAnnots([...annotations, { id, type: 'text',   x, y, text: '', color: drawColor }])
+      if (drawTool === 'title')  saveAnnots([...annotations, { id, type: 'title',  x, y, text: '', color: drawColor, fontSize: titleSize }])
+      if (drawTool === 'sticky') saveAnnots([...annotations, { id, type: 'sticky', x, y, w: 140, h: 90, text: '', color: '#FEF3C7' }])
       setDrawTool('none')
-      setTimeout(() => setEditAnnot(id), 50)
-      return
-    }
-    if (drawTool === 'title') {
-      const id = `a${Date.now()}`
-      saveAnnots([...annotations, { id, type: 'title', x, y, text: '', color: drawColor, fontSize: titleSize }])
-      setDrawTool('none')
-      setTimeout(() => setEditAnnot(id), 50)
-      return
-    }
-    if (drawTool === 'sticky') {
-      const id = `a${Date.now()}`
-      saveAnnots([...annotations, { id, type: 'sticky', x, y, w: 140, h: 90, text: '', color: '#FEF3C7' }])
-      setDrawTool('none')
-      setTimeout(() => setEditAnnot(id), 50)
+      setTimeout(() => { drawPlacedRef.current = false; setEditAnnot(id) }, 80)
       return
     }
     if (drawTool === 'pen') {
