@@ -234,7 +234,7 @@ export default function AppSidebar() {
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         style={{ width: isExpanded ? EXPANDED_W : COLLAPSED_W }}
-        className='fixed top-0 left-0 bottom-0 z-50 flex flex-col bg-sidebar border-r border-sidebar-border transition-[width] duration-200 overflow-hidden font-sans'
+        className='desktop-sidebar fixed top-0 left-0 bottom-0 z-50 flex flex-col bg-sidebar border-r border-sidebar-border transition-[width] duration-200 overflow-hidden font-sans'
       >
         {/* Logo */}
         <div
@@ -355,7 +355,7 @@ export default function AppSidebar() {
         </div>
       </div>
 
-      <div style={{ width: COLLAPSED_W, flexShrink: 0 }} />
+      <div className='desktop-sidebar' style={{ width: COLLAPSED_W, flexShrink: 0 }} />
     </>
   )
 }
