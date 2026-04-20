@@ -987,27 +987,30 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                 <div key={a.id} style={{
                   position: 'absolute', left: a.x, top: a.y, zIndex: isSel ? 22 : 17,
                   minWidth: 200, maxWidth: 800,
-                  cursor: drawTool === 'none' ? 'grab' : drawTool === 'eraser' ? 'cell' : 'default',
+                  cursor: editAnnot === a.id ? 'text' : drawTool === 'none' ? 'grab' : drawTool === 'eraser' ? 'cell' : 'default',
                   outline: isSel ? '2px solid rgba(93,224,230,.7)' : 'none',
                   borderRadius: 4, padding: '4px 8px',
-                  pointerEvents: 'auto', userSelect: 'none',
+                  pointerEvents: 'auto', userSelect: editAnnot === a.id ? 'text' : 'none',
                 }}
                   onMouseDown={e => {
+                    if (editAnnot === a.id) return
                     if (drawTool === 'eraser') { saveAnnots(annotations.filter(x => x.id !== a.id)); return }
                     if (drawTool === 'none') onAnnotMouseDown(e, a)
                   }}
                   onDoubleClick={e => { e.stopPropagation(); setEditAnnot(a.id) }}
                 >
                   {editAnnot === a.id ? (
-                    <input autoFocus defaultValue={a.text || ''}
+                    <input autoFocus value={a.text || ''}
+                      onChange={e => setAnnotations(prev => prev.map(x => x.id === a.id ? { ...x, text: e.target.value } : x))}
                       onBlur={e => {
                         saveAnnots(annotations.map(x => x.id === a.id ? { ...x, text: e.target.value } : x))
                         setEditAnnot(null)
                       }}
-                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                      onMouseDown={e => e.stopPropagation()}
+                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditAnnot(null) }}
                       style={{ background: 'transparent', border: 'none', outline: 'none', width: '100%',
                         fontSize: fs, fontWeight: 900, fontFamily: 'Montserrat,sans-serif', color: a.color,
-                        letterSpacing: '-0.02em', lineHeight: 1.1 }}
+                        letterSpacing: '-0.02em', lineHeight: 1.1, userSelect: 'text' }}
                     />
                   ) : (
                     <span style={{ fontSize: fs, fontWeight: 900, color: a.color, letterSpacing: '-0.02em',
@@ -1038,19 +1041,26 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                     outline: isSel ? '2px solid rgba(93,224,230,.7)' : 'none', borderRadius: 3,
                   }),
                   pointerEvents: 'auto',
-                  userSelect: 'none',
+                  userSelect: editAnnot === a.id ? 'text' : 'none',
+                  cursor: editAnnot === a.id ? 'text' : drawTool === 'none' ? 'grab' : drawTool === 'eraser' ? 'cell' : 'default',
                 }}
                   onMouseDown={e => {
+                    if (editAnnot === a.id) return
                     if (drawTool === 'eraser') { saveAnnots(annotations.filter(x => x.id !== a.id)); return }
                     if (drawTool === 'none') onAnnotMouseDown(e, a)
                   }}
                   onDoubleClick={e => { e.stopPropagation(); setEditAnnot(a.id) }}
                 >
                   {editAnnot === a.id ? (
-                    <textarea autoFocus defaultValue={a.text || ''} onBlur={e => {
-                      saveAnnots(annotations.map(x => x.id === a.id ? { ...x, text: e.target.value } : x))
-                      setEditAnnot(null)
-                    }} style={{ background: 'transparent', border: 'none', outline: 'none', resize: 'none', width: '100%', minHeight: 60, fontSize: 12, fontFamily: 'Montserrat,sans-serif', color: isLight ? '#0A1628' : '#F0F4FF' }} />
+                    <textarea autoFocus value={a.text || ''}
+                      onChange={e => setAnnotations(prev => prev.map(x => x.id === a.id ? { ...x, text: e.target.value } : x))}
+                      onBlur={e => {
+                        saveAnnots(annotations.map(x => x.id === a.id ? { ...x, text: e.target.value } : x))
+                        setEditAnnot(null)
+                      }}
+                      onMouseDown={e => e.stopPropagation()}
+                      onKeyDown={e => { if (e.key === 'Escape') setEditAnnot(null) }}
+                      style={{ background: 'transparent', border: 'none', outline: 'none', resize: 'none', width: '100%', minHeight: 60, fontSize: 12, fontFamily: 'Montserrat,sans-serif', color: isLight ? '#0A1628' : '#F0F4FF', userSelect: 'text' }} />
                   ) : (
                     <span style={{ fontSize: 12, color: isLight ? '#0A1628' : '#F0F4FF', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
                       {a.text || ''}

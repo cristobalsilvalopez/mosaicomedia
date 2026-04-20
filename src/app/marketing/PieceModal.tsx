@@ -145,6 +145,7 @@ export function PieceModal({ piece, pillars, companyId, boardId, onClose, onSave
   })
 
   const [scriptText, setScriptText] = useState(piece?.script_text ?? '')
+  const [scriptFontSize, setScriptFontSize] = useState(14)
   const [mediaUrls,  setMediaUrls]  = useState<string[]>(piece?.media_urls ?? [])
   const [wbShapes,   setWbShapes]   = useState<WBShape[]>(piece?.whiteboard_data ?? [])
   const wbRef = useRef<WBShape[]>(wbShapes)
@@ -260,10 +261,18 @@ export function PieceModal({ piece, pillars, companyId, boardId, onClose, onSave
               onChange={e => f('title', e.target.value)}
               placeholder='Título de la pieza...'
               style={{
-                background: 'transparent', border: 'none', outline: 'none',
+                background: 'transparent', border: 'none',
+                borderBottom: '1.5px solid transparent',
+                outline: 'none',
                 color: '#F0F4FF', fontSize: 16, fontWeight: 800,
                 fontFamily: 'Montserrat,sans-serif', width: '100%',
+                transition: 'border-color .15s',
+                paddingBottom: 2,
               }}
+              onFocus={e => (e.currentTarget.style.borderBottomColor = '#5DE0E6')}
+              onBlur={e => (e.currentTarget.style.borderBottomColor = 'transparent')}
+              onMouseEnter={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderBottomColor = 'rgba(93,224,230,.35)' }}
+              onMouseLeave={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderBottomColor = 'transparent' }}
             />
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
@@ -413,7 +422,27 @@ export function PieceModal({ piece, pillars, companyId, boardId, onClose, onSave
               {tab === 'script' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ ...section, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={sectionTitle}>🎬 Guión / Script completo</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={sectionTitle}>🎬 Guión / Script completo</div>
+                      {/* Font size selector */}
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <span style={{ fontSize: 10, color: '#8899BB', marginRight: 4 }}>Tamaño</span>
+                        {[11, 13, 15, 17, 20].map(sz => (
+                          <button
+                            key={sz}
+                            onClick={() => setScriptFontSize(sz)}
+                            style={{
+                              ...btn,
+                              width: 28, height: 28, padding: 0, fontSize: 10,
+                              background: scriptFontSize === sz ? 'rgba(93,224,230,.2)' : 'rgba(255,255,255,.04)',
+                              border: scriptFontSize === sz ? '1px solid rgba(93,224,230,.5)' : '1px solid rgba(255,255,255,.08)',
+                              color: scriptFontSize === sz ? '#5DE0E6' : '#8899BB',
+                            }}>
+                            {sz}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <p style={{ fontSize: 11, color: '#8899BB', margin: 0 }}>
                       Escribe el guión completo del video o el copy extendido. Este texto es solo para uso interno del equipo.
                     </p>
@@ -424,7 +453,9 @@ export function PieceModal({ piece, pillars, companyId, boardId, onClose, onSave
                       placeholder={'HOOK:\n\n\nDESARROLLO:\n\n\nCIERRE Y CTA:\n\n'}
                       style={{
                         ...inp, resize: 'vertical',
-                        fontFamily: 'monospace', fontSize: 13, lineHeight: 1.7,
+                        fontFamily: 'Montserrat, sans-serif',
+                        fontSize: scriptFontSize,
+                        lineHeight: 1.8,
                         minHeight: 420,
                       }}
                     />
