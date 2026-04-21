@@ -444,8 +444,9 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   const [selectedAnnotIds, setSelectedAnnotIds] = useState<Set<string>>(new Set())
   const drawingRef    = useRef<{ type: DrawTool; points?: number[]; x1?: number; y1?: number } | null>(null)
   const annotDragRef  = useRef<{ ids: string[]; startMX: number; startMY: number; origMap: Record<string, Annot> } | null>(null)
-  const drawPlacedRef = useRef(false)
-  const selBoxRef     = useRef<{ startX: number; startY: number } | null>(null)
+  const drawPlacedRef   = useRef(false)
+  const pendingEditRef  = useRef<string | null>(null)
+  const selBoxRef       = useRef<{ startX: number; startY: number } | null>(null)
   const [selBox, setSelBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
   const [inProgressDraw, setInProgressDraw]   = useState<Annot | null>(null)
 
@@ -453,6 +454,16 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     if (!activeBoardId) return
     try { setAnnotations(JSON.parse(localStorage.getItem(`mp_board_annots_${activeBoardId}`) || '[]')) } catch { setAnnotations([]) }
   }, [activeBoardId])
+
+  // After placement, once React renders drawTool='none' (overlay removed), open editor
+  useEffect(() => {
+    if (drawTool === 'none' && pendingEditRef.current) {
+      const id = pendingEditRef.current
+      pendingEditRef.current = null
+      drawPlacedRef.current = false
+      setEditAnnot(id)
+    }
+  }, [drawTool])
 
   // ── Undo history ─────────────────────────────────────────────
   const annotHistoryRef = useRef<Annot[][]>([])
@@ -581,8 +592,8 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
       if (drawTool === 'text')   saveAnnots([...annotations, { id, type: 'text',   x, y, text: '', color: drawColor }])
       if (drawTool === 'title')  saveAnnots([...annotations, { id, type: 'title',  x, y, text: '', color: drawColor, fontSize: titleSize }])
       if (drawTool === 'sticky') saveAnnots([...annotations, { id, type: 'sticky', x, y, w: 140, h: 90, text: '', color: '#FEF3C7' }])
+      pendingEditRef.current = id
       setDrawTool('none')
-      setTimeout(() => { drawPlacedRef.current = false; setEditAnnot(id) }, 80)
       return
     }
     if (drawTool === 'pen') {
@@ -906,12 +917,6 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
             eraserGestureRef.current = false
             eraseAtPoint(canvasCoords(e).x, canvasCoords(e).y)
           }
-          if (drawTool === 'none') {
-            const { x, y } = canvasCoords(e)
-            selBoxRef.current = { startX: x, startY: y }
-            setSelBox({ x1: x, y1: y, x2: x, y2: y })
-            setSelectedAnnotIds(new Set())
-          }
         }}
         onMouseMove={e => {
           onMouseMove(e)
@@ -939,7 +944,15 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
         {/* Scaled canvas */}
         <div ref={canvasRef} style={{ position: 'relative', width: CANVAS_W * zoom, height: CANVAS_H * zoom, flexShrink: 0 }}>
           {/* Inner canvas at native coordinates, scaled via CSS */}
-          <div style={{ position: 'absolute', top: 0, left: 0, width: CANVAS_W, height: CANVAS_H, transformOrigin: 'top left', transform: `scale(${zoom})` }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: CANVAS_W, height: CANVAS_H, transformOrigin: 'top left', transform: `scale(${zoom})` }}
+            onMouseDown={e => {
+              if (drawTool !== 'none') return
+              const { x, y } = canvasCoords(e)
+              selBoxRef.current = { startX: x, startY: y }
+              setSelBox({ x1: x, y1: y, x2: x, y2: y })
+              setSelectedAnnotIds(new Set())
+            }}
+          >
 
             {/* Dot grid background */}
             <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
