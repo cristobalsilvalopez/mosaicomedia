@@ -814,7 +814,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
         {/* Draw tools */}
         <div style={{ display: 'flex', gap: 2, background: 'rgba(93,224,230,.04)', borderRadius: 8, padding: 2 }}>
           {drawToolCfg.map(t => (
-            <button key={t.key} onClick={() => setDrawTool(t.key)} title={t.title}
+            <button key={t.key} onClick={() => setDrawTool(prev => prev === t.key ? 'none' : t.key)} title={t.title}
               style={{ ...btn, width: 30, height: 30, borderRadius: 6, fontSize: 14,
                 background: drawTool === t.key ? 'rgba(93,224,230,.2)' : 'transparent',
                 outline: drawTool === t.key ? '1.5px solid rgba(93,224,230,.5)' : 'none',
