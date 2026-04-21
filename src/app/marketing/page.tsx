@@ -1013,7 +1013,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                     <path d={penPath(a.points||[])} stroke={a.color} strokeWidth={w} fill='none' strokeLinecap='round' strokeLinejoin='round'
                       style={{ pointerEvents: drawTool === 'none' || drawTool === 'eraser' ? 'auto' : 'none', cursor: drawTool === 'eraser' ? 'cell' : drawTool === 'none' ? 'grab' : 'default' }}
                       onClick={e => { e.stopPropagation(); if (drawTool === 'eraser') { saveAnnots(annotations.filter(x => x.id !== a.id)); return } }}
-                      onMouseDown={e => onAnnotMouseDown(e, a)}
+                      onMouseDown={e => { e.stopPropagation(); onAnnotMouseDown(e, a) }}
                     />
                   </g>
                 )
@@ -1028,7 +1028,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                       stroke={a.color} strokeWidth={w} strokeLinecap='round'
                       markerEnd='url(#arrowhead)' style={{ color: a.color, pointerEvents: drawTool === 'none' || drawTool === 'eraser' ? 'auto' : 'none', cursor: drawTool === 'eraser' ? 'cell' : drawTool === 'none' ? 'grab' : 'default' }}
                       onClick={e => { e.stopPropagation(); if (drawTool === 'eraser') { saveAnnots(annotations.filter(x => x.id !== a.id)); return } }}
-                      onMouseDown={e => onAnnotMouseDown(e, a)}
+                      onMouseDown={e => { e.stopPropagation(); onAnnotMouseDown(e, a) }}
                     />
                   </g>
                 )
@@ -1058,6 +1058,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                   pointerEvents: 'auto', userSelect: editAnnot === a.id ? 'text' : 'none',
                 }}
                   onMouseDown={e => {
+                    e.stopPropagation()
                     if (editAnnot === a.id) return
                     if (drawTool === 'eraser') { saveAnnots(annotations.filter(x => x.id !== a.id)); return }
                     if (drawTool === 'none') onAnnotMouseDown(e, a)
@@ -1108,6 +1109,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                   cursor: editAnnot === a.id ? 'text' : drawTool === 'none' ? 'pointer' : drawTool === 'eraser' ? 'cell' : 'default',
                 }}
                   onMouseDown={e => {
+                    e.stopPropagation()
                     if (editAnnot === a.id) return
                     if (drawTool === 'eraser') { saveAnnots(annotations.filter(x => x.id !== a.id)); return }
                     if (drawTool === 'none') onAnnotMouseDown(e, a)
@@ -1152,7 +1154,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                     display: 'flex', flexDirection: 'column', gap: 4,
                     zIndex: 10,
                   }}
-                  onMouseDown={e => drawTool === 'none' && onMouseDown(e, piece.id)}
+                  onMouseDown={e => { e.stopPropagation(); drawTool === 'none' && onMouseDown(e, piece.id) }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 16 }}>{fc?.emoji ?? '📝'}</span>
