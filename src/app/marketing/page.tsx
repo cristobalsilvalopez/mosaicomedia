@@ -441,10 +441,12 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   const [drawWidth,       setDrawWidth]       = useState(2)
   const [annotations,     setAnnotations]     = useState<Annot[]>([])
   const [editAnnot,       setEditAnnot]       = useState<string | null>(null)
-  const [selectedAnnotId, setSelectedAnnotId] = useState<string | null>(null)
+  const [selectedAnnotIds, setSelectedAnnotIds] = useState<Set<string>>(new Set())
   const drawingRef    = useRef<{ type: DrawTool; points?: number[]; x1?: number; y1?: number } | null>(null)
-  const annotDragRef  = useRef<{ id: string; startMX: number; startMY: number; orig: Annot } | null>(null)
+  const annotDragRef  = useRef<{ ids: string[]; startMX: number; startMY: number; origMap: Record<string, Annot> } | null>(null)
   const drawPlacedRef = useRef(false)
+  const selBoxRef     = useRef<{ startX: number; startY: number } | null>(null)
+  const [selBox, setSelBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
   const [inProgressDraw, setInProgressDraw]   = useState<Annot | null>(null)
 
   useEffect(() => {
@@ -472,7 +474,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     annotHistoryRef.current = history.slice(0, -1)
     setCanUndo(annotHistoryRef.current.length > 0)
     setAnnotations(prev)
-    setSelectedAnnotId(null)
+    setSelectedAnnotIds(new Set())
     if (activeBoardId) try { localStorage.setItem(`mp_board_annots_${activeBoardId}`, JSON.stringify(prev)) } catch {}
   }
 
@@ -531,26 +533,26 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
         annotHistoryRef.current = history.slice(0, -1)
         setCanUndo(annotHistoryRef.current.length > 0)
         setAnnotations(prev)
-        setSelectedAnnotId(null)
+        setSelectedAnnotIds(new Set())
         if (activeBoardId) try { localStorage.setItem(`mp_board_annots_${activeBoardId}`, JSON.stringify(prev)) } catch {}
         return
       }
-      if (!selectedAnnotId) return
+      if (selectedAnnotIds.size === 0) return
       if (e.key === 'Delete' || e.key === 'Backspace') {
         setAnnotations(prev => {
-          const next = prev.filter(a => a.id !== selectedAnnotId)
+          const next = prev.filter(a => !selectedAnnotIds.has(a.id))
           annotHistoryRef.current = [...annotHistoryRef.current.slice(-30), prev]
           setCanUndo(true)
           if (activeBoardId) try { localStorage.setItem(`mp_board_annots_${activeBoardId}`, JSON.stringify(next)) } catch {}
           return next
         })
-        setSelectedAnnotId(null)
+        setSelectedAnnotIds(new Set())
       }
-      if (e.key === 'Escape') setSelectedAnnotId(null)
+      if (e.key === 'Escape') setSelectedAnnotIds(new Set())
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedAnnotId, activeBoardId])
+  }, [selectedAnnotIds, activeBoardId])
 
   function translateAnnot(a: Annot, dx: number, dy: number): Annot {
     if (a.type === 'sticky' || a.type === 'text' || a.type === 'title') return { ...a, x: (a.x || 0) + dx, y: (a.y || 0) + dy }
@@ -631,17 +633,32 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   function onAnnotMouseDown(e: React.MouseEvent, a: Annot) {
     if (drawTool !== 'none') return
     e.stopPropagation()
-    setSelectedAnnotId(a.id)
-    const orig: Annot = { ...a, points: a.points ? [...a.points] : undefined }
-    annotDragRef.current = { id: a.id, startMX: e.clientX, startMY: e.clientY, orig }
+    // Shift+click: toggle element in selection
+    if (e.shiftKey) {
+      setSelectedAnnotIds(prev => {
+        const next = new Set(prev)
+        if (next.has(a.id)) { next.delete(a.id) } else { next.add(a.id) }
+        return next
+      })
+      return
+    }
+    // Determine which IDs to drag
+    const dragIds = selectedAnnotIds.has(a.id) ? [...selectedAnnotIds] : [a.id]
+    if (!selectedAnnotIds.has(a.id)) setSelectedAnnotIds(new Set([a.id]))
+    const origMap: Record<string, Annot> = {}
+    for (const id of dragIds) {
+      const ann = annotations.find(x => x.id === id)
+      if (ann) origMap[id] = { ...ann, points: ann.points ? [...ann.points] : undefined }
+    }
+    annotDragRef.current = { ids: dragIds, startMX: e.clientX, startMY: e.clientY, origMap }
   }
 
   function onAnnotMouseMove(e: React.MouseEvent) {
     if (!annotDragRef.current) return
-    const { id, startMX, startMY, orig } = annotDragRef.current
+    const { ids, startMX, startMY, origMap } = annotDragRef.current
     const dx = (e.clientX - startMX) / zoom
     const dy = (e.clientY - startMY) / zoom
-    setAnnotations(prev => prev.map(a => a.id === id ? translateAnnot(orig, dx, dy) : a))
+    setAnnotations(prev => prev.map(a => ids.includes(a.id) ? translateAnnot(origMap[a.id], dx, dy) : a))
   }
 
   function onAnnotMouseUp() {
@@ -651,6 +668,29 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
       return prev
     })
     annotDragRef.current = null
+  }
+
+  // Rubber-band selection
+  function onSelBoxMove(e: React.MouseEvent) {
+    if (!selBoxRef.current) return
+    const { x, y } = canvasCoords(e)
+    setSelBox({ x1: selBoxRef.current.startX, y1: selBoxRef.current.startY, x2: x, y2: y })
+  }
+
+  function onSelBoxUp() {
+    if (!selBoxRef.current || !selBox) { selBoxRef.current = null; setSelBox(null); return }
+    const minX = Math.min(selBox.x1, selBox.x2), maxX = Math.max(selBox.x1, selBox.x2)
+    const minY = Math.min(selBox.y1, selBox.y2), maxY = Math.max(selBox.y1, selBox.y2)
+    if (maxX - minX > 4 || maxY - minY > 4) {
+      const ids = new Set<string>()
+      for (const a of annotations) {
+        const ax = (a.x ?? a.x1) ?? 0, ay = (a.y ?? a.y1) ?? 0
+        if (ax >= minX && ax <= maxX && ay >= minY && ay <= maxY) ids.add(a.id)
+      }
+      setSelectedAnnotIds(ids)
+    }
+    selBoxRef.current = null
+    setSelBox(null)
   }
 
   // Smooth Bezier pen path (quadratic midpoint curves)
@@ -821,22 +861,22 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
         {drawTool === 'eraser' && (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <span style={{ fontSize: 10, color: '#8899BB' }}>Clic en elemento para borrar</span>
-            <button onClick={() => { saveAnnots([]); setSelectedAnnotId(null) }}
+            <button onClick={() => { saveAnnots([]); setSelectedAnnotIds(new Set()) }}
               style={{ ...btn, background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#EF4444', padding: '3px 10px', fontSize: 11 }}>
               Borrar todo
             </button>
           </div>
         )}
 
-        {/* Selected annotation: delete button */}
-        {drawTool === 'none' && selectedAnnotId && (
+        {/* Selected annotations: delete button */}
+        {drawTool === 'none' && selectedAnnotIds.size > 0 && (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', background: 'rgba(93,224,230,.06)', border: '1px solid rgba(93,224,230,.2)', borderRadius: 7, padding: '3px 10px' }}>
-            <span style={{ fontSize: 10, color: '#5DE0E6' }}>1 elemento seleccionado</span>
-            <button onClick={() => { saveAnnots(annotations.filter(a => a.id !== selectedAnnotId)); setSelectedAnnotId(null) }}
+            <span style={{ fontSize: 10, color: '#5DE0E6' }}>{selectedAnnotIds.size} elemento{selectedAnnotIds.size > 1 ? 's' : ''} seleccionado{selectedAnnotIds.size > 1 ? 's' : ''}</span>
+            <button onClick={() => { saveAnnots(annotations.filter(a => !selectedAnnotIds.has(a.id))); setSelectedAnnotIds(new Set()) }}
               style={{ ...btn, background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.25)', color: '#EF4444', padding: '2px 8px', fontSize: 10 }}>
               🗑 Eliminar (Del)
             </button>
-            <button onClick={() => setSelectedAnnotId(null)}
+            <button onClick={() => setSelectedAnnotIds(new Set())}
               style={{ ...btn, background: 'transparent', border: 'none', color: '#8899BB', padding: '2px 6px', fontSize: 11 }}>
               ✕
             </button>
@@ -866,11 +906,18 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
             eraserGestureRef.current = false
             eraseAtPoint(canvasCoords(e).x, canvasCoords(e).y)
           }
+          if (drawTool === 'none') {
+            const { x, y } = canvasCoords(e)
+            selBoxRef.current = { startX: x, startY: y }
+            setSelBox({ x1: x, y1: y, x2: x, y2: y })
+            setSelectedAnnotIds(new Set())
+          }
         }}
         onMouseMove={e => {
           onMouseMove(e)
           if (drawingRef.current) onDrawMouseMove(e)
           if (annotDragRef.current) onAnnotMouseMove(e)
+          if (selBoxRef.current) onSelBoxMove(e)
           if (drawTool === 'eraser') {
             const { x, y } = canvasCoords(e)
             setEraserPos({ x, y })
@@ -878,15 +925,16 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
           }
         }}
         onMouseUp={e => {
-          onMouseUp(); onDrawMouseUp(e); onAnnotMouseUp()
+          onMouseUp(); onDrawMouseUp(e); onAnnotMouseUp(); onSelBoxUp()
           eraserHeldRef.current = false; eraserGestureRef.current = false
         }}
         onMouseLeave={() => {
           onMouseUp(); drawingRef.current = null; setInProgressDraw(null); onAnnotMouseUp()
+          selBoxRef.current = null; setSelBox(null)
           eraserHeldRef.current = false; eraserGestureRef.current = false
           setEraserPos(null)
         }}
-        onClick={e => { if (e.target === e.currentTarget || (e.target as HTMLElement).closest?.('[data-canvas]')) setSelectedAnnotId(null) }}
+        onClick={e => { if (e.target === e.currentTarget || (e.target as HTMLElement).closest?.('[data-canvas]')) setSelectedAnnotIds(new Set()) }}
       >
         {/* Scaled canvas */}
         <div ref={canvasRef} style={{ position: 'relative', width: CANVAS_W * zoom, height: CANVAS_H * zoom, flexShrink: 0 }}>
@@ -931,7 +979,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                 </marker>
               </defs>
               {annotations.filter(a => a.type === 'pen').map(a => {
-                const isSel = selectedAnnotId === a.id
+                const isSel = selectedAnnotIds.has(a.id)
                 const w = a.width || 2
                 return (
                   <g key={a.id}>
@@ -945,7 +993,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                 )
               })}
               {annotations.filter(a => a.type === 'arrow').map(a => {
-                const isSel = selectedAnnotId === a.id
+                const isSel = selectedAnnotIds.has(a.id)
                 const w = a.width || 2
                 return (
                   <g key={a.id}>
@@ -972,7 +1020,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
 
             {/* ── Title annotations ── */}
             {annotations.filter(a => a.type === 'title').map(a => {
-              const isSel = selectedAnnotId === a.id
+              const isSel = selectedAnnotIds.has(a.id)
               const fs = a.fontSize || 36
               return (
                 <div key={a.id} style={{
@@ -1016,7 +1064,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
 
             {/* ── Sticky note & text annotations ── */}
             {annotations.filter(a => a.type === 'sticky' || a.type === 'text').map(a => {
-              const isSel = selectedAnnotId === a.id
+              const isSel = selectedAnnotIds.has(a.id)
               const isLight = a.color === '#FEF3C7' || a.color === '#D1FAE5' || a.color === '#DBEAFE' || a.color === '#F0F4FF'
               return (
                 <div key={a.id} style={{
@@ -1137,6 +1185,18 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
             )
           })}
           <div style={{ position: 'absolute', left: scrollX, top: scrollY, width: viewW, height: viewH, border: '1px solid rgba(93,224,230,.6)', borderRadius: 2, pointerEvents: 'none' }} />
+
+          {/* ── Rubber-band selection box ── */}
+          {selBox && (
+            <div style={{
+              position: 'absolute', pointerEvents: 'none', zIndex: 30,
+              left: Math.min(selBox.x1, selBox.x2), top: Math.min(selBox.y1, selBox.y2),
+              width: Math.abs(selBox.x2 - selBox.x1), height: Math.abs(selBox.y2 - selBox.y1),
+              border: '1.5px dashed rgba(93,224,230,.8)',
+              background: 'rgba(93,224,230,.07)',
+              borderRadius: 3,
+            }} />
+          )}
         </div>
       </div>
     </div>
