@@ -457,6 +457,17 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     try { setAnnotations(JSON.parse(localStorage.getItem(`mp_board_annots_${activeBoardId}`) || '[]')) } catch { setAnnotations([]) }
   }, [activeBoardId])
 
+  // Auto-deactivate placement tools when a new annotation is added
+  const prevAnnotCountRef = useRef(0)
+  useEffect(() => {
+    if (annotations.length > prevAnnotCountRef.current) {
+      if (drawTool === 'text' || drawTool === 'title' || drawTool === 'sticky') {
+        setDrawTool('none')
+      }
+    }
+    prevAnnotCountRef.current = annotations.length
+  }, [annotations.length])
+
   // ── Undo history ─────────────────────────────────────────────
   const annotHistoryRef = useRef<Annot[][]>([])
   const [canUndo, setCanUndo] = useState(false)
