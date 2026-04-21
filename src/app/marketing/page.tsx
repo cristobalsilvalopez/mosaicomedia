@@ -443,10 +443,12 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   const [editAnnot,       setEditAnnot]       = useState<string | null>(null)
   const [selectedAnnotIds, setSelectedAnnotIds] = useState<Set<string>>(new Set())
   const drawingRef    = useRef<{ type: DrawTool; points?: number[]; x1?: number; y1?: number } | null>(null)
+  // annotDragRef: actual drag in progress (after movement threshold)
   const annotDragRef  = useRef<{ ids: string[]; startMX: number; startMY: number; origMap: Record<string, Annot> } | null>(null)
-  const drawPlacedRef   = useRef(false)
-  const pendingEditRef  = useRef<string | null>(null)
-  const selBoxRef       = useRef<{ startX: number; startY: number } | null>(null)
+  // pendingAnnotDragRef: mousedown recorded but not yet moved (single-click = edit)
+  const pendingAnnotDragRef = useRef<{ clickedId: string; ids: string[]; startMX: number; startMY: number; origMap: Record<string, Annot> } | null>(null)
+  const drawPlacedRef = useRef(false)
+  const selBoxRef     = useRef<{ startX: number; startY: number } | null>(null)
   const [selBox, setSelBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
   const [inProgressDraw, setInProgressDraw]   = useState<Annot | null>(null)
 
@@ -455,14 +457,9 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     try { setAnnotations(JSON.parse(localStorage.getItem(`mp_board_annots_${activeBoardId}`) || '[]')) } catch { setAnnotations([]) }
   }, [activeBoardId])
 
-  // After placement, once React renders drawTool='none' (overlay removed), open editor
+  // Reset placement guard once drawTool switches back to 'none'
   useEffect(() => {
-    if (drawTool === 'none' && pendingEditRef.current) {
-      const id = pendingEditRef.current
-      pendingEditRef.current = null
-      drawPlacedRef.current = false
-      setEditAnnot(id)
-    }
+    if (drawTool === 'none') drawPlacedRef.current = false
   }, [drawTool])
 
   // ── Undo history ─────────────────────────────────────────────
@@ -592,7 +589,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
       if (drawTool === 'text')   saveAnnots([...annotations, { id, type: 'text',   x, y, text: '', color: drawColor }])
       if (drawTool === 'title')  saveAnnots([...annotations, { id, type: 'title',  x, y, text: '', color: drawColor, fontSize: titleSize }])
       if (drawTool === 'sticky') saveAnnots([...annotations, { id, type: 'sticky', x, y, w: 140, h: 90, text: '', color: '#FEF3C7' }])
-      pendingEditRef.current = id
+      setSelectedAnnotIds(new Set([id]))
       setDrawTool('none')
       return
     }
@@ -640,11 +637,10 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     drawingRef.current = null; setInProgressDraw(null)
   }
 
-  // Annotation drag (select mode)
+  // Annotation interaction: click = edit, drag = move
   function onAnnotMouseDown(e: React.MouseEvent, a: Annot) {
     if (drawTool !== 'none') return
     e.stopPropagation()
-    // Shift+click: toggle element in selection
     if (e.shiftKey) {
       setSelectedAnnotIds(prev => {
         const next = new Set(prev)
@@ -653,7 +649,6 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
       })
       return
     }
-    // Determine which IDs to drag
     const dragIds = selectedAnnotIds.has(a.id) ? [...selectedAnnotIds] : [a.id]
     if (!selectedAnnotIds.has(a.id)) setSelectedAnnotIds(new Set([a.id]))
     const origMap: Record<string, Annot> = {}
@@ -661,10 +656,19 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
       const ann = annotations.find(x => x.id === id)
       if (ann) origMap[id] = { ...ann, points: ann.points ? [...ann.points] : undefined }
     }
-    annotDragRef.current = { ids: dragIds, startMX: e.clientX, startMY: e.clientY, origMap }
+    pendingAnnotDragRef.current = { clickedId: a.id, ids: dragIds, startMX: e.clientX, startMY: e.clientY, origMap }
   }
 
   function onAnnotMouseMove(e: React.MouseEvent) {
+    // Promote pending → actual drag once threshold exceeded (5px)
+    if (pendingAnnotDragRef.current && !annotDragRef.current) {
+      const dx = e.clientX - pendingAnnotDragRef.current.startMX
+      const dy = e.clientY - pendingAnnotDragRef.current.startMY
+      if (dx * dx + dy * dy > 25) {
+        annotDragRef.current = pendingAnnotDragRef.current
+        pendingAnnotDragRef.current = null
+      }
+    }
     if (!annotDragRef.current) return
     const { ids, startMX, startMY, origMap } = annotDragRef.current
     const dx = (e.clientX - startMX) / zoom
@@ -673,6 +677,13 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   }
 
   function onAnnotMouseUp() {
+    // Single click (no drag) → enter edit mode
+    if (pendingAnnotDragRef.current) {
+      const { clickedId } = pendingAnnotDragRef.current
+      pendingAnnotDragRef.current = null
+      setEditAnnot(clickedId)
+      return
+    }
     if (!annotDragRef.current) return
     setAnnotations(prev => {
       if (activeBoardId) try { localStorage.setItem(`mp_board_annots_${activeBoardId}`, JSON.stringify(prev)) } catch {}
@@ -934,7 +945,8 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
           eraserHeldRef.current = false; eraserGestureRef.current = false
         }}
         onMouseLeave={() => {
-          onMouseUp(); drawingRef.current = null; setInProgressDraw(null); onAnnotMouseUp()
+          onMouseUp(); drawingRef.current = null; setInProgressDraw(null)
+          pendingAnnotDragRef.current = null; annotDragRef.current = null
           selBoxRef.current = null; setSelBox(null)
           eraserHeldRef.current = false; eraserGestureRef.current = false
           setEraserPos(null)
@@ -1039,7 +1051,7 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                 <div key={a.id} style={{
                   position: 'absolute', left: a.x, top: a.y, zIndex: isSel ? 22 : 17,
                   minWidth: 200, maxWidth: 800,
-                  cursor: editAnnot === a.id ? 'text' : drawTool === 'none' ? 'grab' : drawTool === 'eraser' ? 'cell' : 'default',
+                  cursor: editAnnot === a.id ? 'text' : drawTool === 'none' ? 'pointer' : drawTool === 'eraser' ? 'cell' : 'default',
                   outline: isSel ? '2px solid rgba(93,224,230,.7)' : 'none',
                   borderRadius: 4, padding: '4px 8px',
                   pointerEvents: 'auto', userSelect: editAnnot === a.id ? 'text' : 'none',
@@ -1049,7 +1061,6 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                     if (drawTool === 'eraser') { saveAnnots(annotations.filter(x => x.id !== a.id)); return }
                     if (drawTool === 'none') onAnnotMouseDown(e, a)
                   }}
-                  onDoubleClick={e => { e.stopPropagation(); setEditAnnot(a.id) }}
                 >
                   {editAnnot === a.id ? (
                     <input autoFocus value={a.text || ''}
@@ -1086,22 +1097,20 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
                     width: a.w || 140, minHeight: a.h || 90,
                     background: a.color, borderRadius: 4, padding: 8,
                     boxShadow: isSel ? `0 0 0 2px #5DE0E6, 2px 4px 16px rgba(0,0,0,.4)` : '2px 4px 12px rgba(0,0,0,.3)',
-                    cursor: drawTool === 'none' ? 'grab' : drawTool === 'eraser' ? 'cell' : 'default',
+                    cursor: editAnnot === a.id ? 'text' : drawTool === 'none' ? 'pointer' : drawTool === 'eraser' ? 'cell' : 'default',
                   } : {
-                    cursor: drawTool === 'none' ? 'grab' : drawTool === 'eraser' ? 'cell' : 'default',
                     color: a.color, fontWeight: 700, fontSize: 13,
                     outline: isSel ? '2px solid rgba(93,224,230,.7)' : 'none', borderRadius: 3,
                   }),
                   pointerEvents: 'auto',
                   userSelect: editAnnot === a.id ? 'text' : 'none',
-                  cursor: editAnnot === a.id ? 'text' : drawTool === 'none' ? 'grab' : drawTool === 'eraser' ? 'cell' : 'default',
+                  cursor: editAnnot === a.id ? 'text' : drawTool === 'none' ? 'pointer' : drawTool === 'eraser' ? 'cell' : 'default',
                 }}
                   onMouseDown={e => {
                     if (editAnnot === a.id) return
                     if (drawTool === 'eraser') { saveAnnots(annotations.filter(x => x.id !== a.id)); return }
                     if (drawTool === 'none') onAnnotMouseDown(e, a)
                   }}
-                  onDoubleClick={e => { e.stopPropagation(); setEditAnnot(a.id) }}
                 >
                   {editAnnot === a.id ? (
                     <textarea autoFocus value={a.text || ''}
