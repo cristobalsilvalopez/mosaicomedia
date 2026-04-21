@@ -447,8 +447,8 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   const annotDragRef  = useRef<{ ids: string[]; startMX: number; startMY: number; origMap: Record<string, Annot> } | null>(null)
   // pendingAnnotDragRef: mousedown recorded but not yet moved (single-click = edit)
   const pendingAnnotDragRef = useRef<{ clickedId: string; ids: string[]; startMX: number; startMY: number; origMap: Record<string, Annot> } | null>(null)
-  const drawPlacedRef = useRef(false)
-  const selBoxRef     = useRef<{ startX: number; startY: number } | null>(null)
+  const lastPlacedAtRef = useRef(0)   // timestamp-based dedup; never needs reset
+  const selBoxRef       = useRef<{ startX: number; startY: number } | null>(null)
   const [selBox, setSelBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
   const [inProgressDraw, setInProgressDraw]   = useState<Annot | null>(null)
 
@@ -456,11 +456,6 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
     if (!activeBoardId) return
     try { setAnnotations(JSON.parse(localStorage.getItem(`mp_board_annots_${activeBoardId}`) || '[]')) } catch { setAnnotations([]) }
   }, [activeBoardId])
-
-  // Reset placement guard once drawTool switches back to 'none'
-  useEffect(() => {
-    if (drawTool === 'none') drawPlacedRef.current = false
-  }, [drawTool])
 
   // ── Undo history ─────────────────────────────────────────────
   const annotHistoryRef = useRef<Annot[][]>([])
@@ -579,20 +574,10 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
   }
 
   function onDrawMouseDown(e: React.MouseEvent) {
-    if (drawTool === 'none' || drawTool === 'eraser') return
+    // text/title/sticky are placed via the inner canvas handler, not the overlay
+    if (drawTool === 'none' || drawTool === 'eraser' || drawTool === 'text' || drawTool === 'title' || drawTool === 'sticky') return
     e.stopPropagation()
     const { x, y } = canvasCoords(e)
-    if (drawTool === 'text' || drawTool === 'title' || drawTool === 'sticky') {
-      if (drawPlacedRef.current) return
-      drawPlacedRef.current = true
-      const id = `a${Date.now()}`
-      if (drawTool === 'text')   saveAnnots([...annotations, { id, type: 'text',   x, y, text: '', color: drawColor }])
-      if (drawTool === 'title')  saveAnnots([...annotations, { id, type: 'title',  x, y, text: '', color: drawColor, fontSize: titleSize }])
-      if (drawTool === 'sticky') saveAnnots([...annotations, { id, type: 'sticky', x, y, w: 140, h: 90, text: '', color: '#FEF3C7' }])
-      setSelectedAnnotIds(new Set([id]))
-      setDrawTool('none')
-      return
-    }
     if (drawTool === 'pen') {
       drawingRef.current = { type: 'pen', points: [x, y] }
       setInProgressDraw(null)
@@ -958,7 +943,23 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
           {/* Inner canvas at native coordinates, scaled via CSS */}
           <div style={{ position: 'absolute', top: 0, left: 0, width: CANVAS_W, height: CANVAS_H, transformOrigin: 'top left', transform: `scale(${zoom})` }}
             onMouseDown={e => {
+              // Place text/title/sticky — timestamp guard prevents double-fire
+              if (drawTool === 'text' || drawTool === 'title' || drawTool === 'sticky') {
+                const now = Date.now()
+                if (now - lastPlacedAtRef.current < 800) return
+                lastPlacedAtRef.current = now
+                e.stopPropagation()
+                const { x, y } = canvasCoords(e)
+                const id = `a${Date.now()}`
+                if (drawTool === 'text')   saveAnnots([...annotations, { id, type: 'text',   x, y, text: '', color: drawColor }])
+                if (drawTool === 'title')  saveAnnots([...annotations, { id, type: 'title',  x, y, text: '', color: drawColor, fontSize: titleSize }])
+                if (drawTool === 'sticky') saveAnnots([...annotations, { id, type: 'sticky', x, y, w: 140, h: 90, text: '', color: '#FEF3C7' }])
+                setSelectedAnnotIds(new Set([id]))
+                setDrawTool('none')
+                return
+              }
               if (drawTool !== 'none') return
+              // Rubber-band selection on background
               const { x, y } = canvasCoords(e)
               selBoxRef.current = { startX: x, startY: y }
               setSelBox({ x1: x, y1: y, x2: x, y2: y })
@@ -1186,8 +1187,8 @@ function BoardTab({ pieces, pillars, companyId, boards, activeBoardId, onBoardCh
               )
             })}
 
-            {/* Draw overlay — captures events for all draw tools */}
-            {drawTool !== 'none' && drawTool !== 'eraser' && (
+            {/* Draw overlay — only for pen/arrow (continuous stroke tools) */}
+            {(drawTool === 'pen' || drawTool === 'arrow') && (
               <div data-canvas='1' style={{ position: 'absolute', inset: 0, zIndex: 25, cursor: cursorStyle }}
                 onMouseDown={onDrawMouseDown}
                 onMouseMove={onDrawMouseMove}
