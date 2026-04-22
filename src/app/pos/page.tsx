@@ -251,7 +251,7 @@ export default function POSPage() {
   // ============================================================
   function openPayModal() {
     if (!cart.length) return
-    setPmEf(String(totals.total)); setPmDb(''); setPmCr(''); setPmTr(''); setPmMp(''); setPmCh('')
+    setPmEf(''); setPmDb(''); setPmCr(''); setPmTr(''); setPmMp(''); setPmCh('')
     setPmFocus('ef')
     setShowPayModal(true)
     setTimeout(() => efInputRef.current?.select(), 80)
