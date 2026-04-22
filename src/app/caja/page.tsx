@@ -141,10 +141,11 @@ export default function CajaPage() {
   const router = useRouter()
   const [user, setUser]       = useState<any>(null)
   const [company, setCompany] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [session, setSession] = useState<CashSession | null>(null)
-  const [history, setHistory] = useState<any[]>([])
-  const [view, setView]       = useState<'main'|'open'|'close'|'history'>('main')
+  const [loading, setLoading]           = useState(true)
+  const [sessions, setSessions]         = useState<CashSession[]>([])
+  const [sessionToClose, setSessionToClose] = useState<CashSession | null>(null)
+  const [history, setHistory]           = useState<any[]>([])
+  const [view, setView]                 = useState<'main'|'open'|'close'|'history'>('main')
 
   // Modal PIN — useRef para el valor para evitar pérdida de foco
   const [showPinModal, setShowPinModal] = useState(false)
@@ -170,8 +171,8 @@ export default function CajaPage() {
 
   // ============================================================
   async function loadSession(companyId: string) {
-    const { data } = await supabase.rpc('get_active_cash_session', { p_company_id: companyId })
-    setSession(data || null)
+    const { data } = await supabase.rpc('get_active_cash_sessions', { p_company_id: companyId })
+    setSessions(Array.isArray(data) ? data : (data ? [data] : []))
   }
 
   async function loadHistory(companyId: string) {
@@ -200,7 +201,7 @@ export default function CajaPage() {
   // ============================================================
   function requestPin(action: 'open' | 'close') {
     if (action === 'open' && (!openingAmt || parseFloat(openingAmt) < 0)) return
-    if (action === 'close' && !session) return
+    if (action === 'close' && !sessionToClose) return
     setPendingAction(action)
     pinValueRef.current = ''
     setPinDots(0)
@@ -245,9 +246,10 @@ export default function CajaPage() {
     pinValueRef.current = ''
     setPinDots(0)
     setPinError('')
-    if (pendingAction === 'open') await executeOpen()
+    if (pendingAction === 'open')  await executeOpen()
     if (pendingAction === 'close') await executeClose()
     setPendingAction(null)
+    setSessionToClose(null)
   }
 
   // ============================================================
@@ -276,13 +278,15 @@ export default function CajaPage() {
     setView('main')
     setOpeningAmt('')
     setOpeningNote('')
+    // Auto-sugerir siguiente nombre
+    setRegisterName('Caja ' + (sessions.length + 2))
   }
 
   // ============================================================
   // CIERRE
   // ============================================================
   async function executeClose() {
-    if (!session) return
+    if (!sessionToClose) return
     setClosing(true)
     const efectivoContado  = calcArqueo(arqueo)
     const transbankTotal   = parseFloat(transbankAmt) || 0
@@ -291,18 +295,18 @@ export default function CajaPage() {
     // Guardar arqueo
     await supabase.from('cash_arqueos').insert({
       company_id:      company.id,
-      cash_session_id: session.id,
+      cash_session_id: sessionToClose.id,
       user_id:         user.id,
       ...arqueo,
-      expected_cash:   session.opening_amount + (session.payment_summary?.cash || 0),
-      difference:      efectivoContado - (session.opening_amount + (session.payment_summary?.cash || 0)),
+      expected_cash:   sessionToClose.opening_amount + (sessionToClose.payment_summary?.cash || 0),
+      difference:      efectivoContado - (sessionToClose.opening_amount + (sessionToClose.payment_summary?.cash || 0)),
       arqueo_type:     'close',
       notes:           closingNote || null,
     })
 
     // Cerrar sesión con el total contado real
     const { data, error } = await supabase.rpc('close_cash_session', {
-      p_session_id:     session.id,
+      p_session_id:     sessionToClose.id,
       p_user_id:        user.id,
       p_closing_amount: totalContado,
       p_notes:          closingNote || null,
@@ -315,7 +319,7 @@ export default function CajaPage() {
     }
 
     setCloseResult({ ...data, efectivo_contado: efectivoContado, transbank_contado: transbankTotal })
-    setSession(null)
+    await loadSession(company.id)
     await loadHistory(company.id)
     setArqueo(emptyArqueo)
     setTransbankAmt('')
@@ -333,8 +337,8 @@ export default function CajaPage() {
 
   const arqueoTotal  = calcArqueo(arqueo)
   const transbankVal = parseFloat(transbankAmt) || 0
-  const cashSales    = session?.payment_summary?.cash || 0
-  const expectedCash = session ? (session.opening_amount + cashSales) : 0
+  const cashSales    = sessionToClose?.payment_summary?.cash || 0
+  const expectedCash = sessionToClose ? (sessionToClose.opening_amount + cashSales) : 0
   const arqueoDiff   = arqueoTotal - expectedCash
 
   // ============================================================
@@ -518,7 +522,7 @@ export default function CajaPage() {
   // ============================================================
   // VISTA CIERRE
   // ============================================================
-  if (view === 'close' && session) return (
+  if (view === 'close' && sessionToClose) return (
     <div style={ST.page}>
       {showPinModal && <PinModal onClose={() => setShowPinModal(false)} pendingAction={pendingAction} registerName={registerName} pinDots={pinDots} inputRef={pinInputRef} onInput={handlePinInput} onKeyDown={handlePinKey} pinError={pinError} onConfirm={confirmPin} loading={pinLoading} />}
       <div style={ST.body}>
@@ -528,10 +532,10 @@ export default function CajaPage() {
         <div style={ST.card}>
           <div style={{ fontSize:13, fontWeight:700, marginBottom:12, color:'#5DE0E6' }}>📊 Resumen del día</div>
           {[
-            ['Apertura de caja',        fmt(session.opening_amount)],
-            ['Total ventas',            fmt(session.total_sales)],
+            ['Apertura de caja',        fmt(sessionToClose.opening_amount)],
+            ['Total ventas',            fmt(sessionToClose.total_sales)],
             ['Ventas en efectivo',      fmt(cashSales)],
-            ['N° transacciones',        String(session.transaction_count)],
+            ['N° transacciones',        String(sessionToClose.transaction_count)],
             ['Efectivo esperado en caja', fmt(expectedCash)],
           ].map(([l, v]) => (
             <div key={l} style={ST.row}><span style={{ color:'#8899BB' }}>{l}</span><span style={{ fontWeight:600, color:'#F0F4FF' }}>{v}</span></div>
@@ -625,7 +629,7 @@ export default function CajaPage() {
             <div style={{ background:'#0D1525', borderRadius:8, padding:'10px 14px', fontSize:12 }}>
               <div style={{ display:'flex', justifyContent:'space-between', color:'#8899BB', marginBottom:4 }}>
                 <span>Sistema registra (tarjetas)</span>
-                <span>{fmt((session.payment_summary?.debit || 0) + (session.payment_summary?.credit || 0))}</span>
+                <span>{fmt((sessionToClose.payment_summary?.debit || 0) + (sessionToClose.payment_summary?.credit || 0))}</span>
               </div>
               <div style={{ display:'flex', justifyContent:'space-between', color:'#8899BB' }}>
                 <span>Máquina marca</span>
@@ -726,81 +730,83 @@ export default function CajaPage() {
       {showPinModal && <PinModal onClose={() => setShowPinModal(false)} pendingAction={pendingAction} registerName={registerName} pinDots={pinDots} inputRef={pinInputRef} onInput={handlePinInput} onKeyDown={handlePinKey} pinError={pinError} onConfirm={confirmPin} loading={pinLoading} />}
       <div style={ST.body}>
 
-        {/* Estado de caja */}
-        {session ? (
-          <div style={ST.cardGreen}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-              <div>
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <div style={{ width:10, height:10, borderRadius:'50%', background:'#22C55E', boxShadow:'0 0 8px rgba(34,197,94,.6)' }} />
-                  <span style={{ fontSize:15, fontWeight:700 }}>{session.register_name}</span>
-                  <span style={{ fontSize:11, color:'#22C55E', fontWeight:600 }}>EN LÍNEA</span>
-                </div>
-                <div style={{ fontSize:11, color:'#8899BB', marginTop:4 }}>
-                  Abierta a las {fmtTime(session.opened_at)} · {session.opened_by_name}
-                </div>
-              </div>
-              <div style={{ textAlign:'right' }}>
-                <div style={{ fontSize:11, color:'#8899BB' }}>Ventas del día</div>
-                <div style={{ fontSize:22, fontWeight:800, color:'#5DE0E6' }}>{fmt(session.total_sales)}</div>
-              </div>
-            </div>
-
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14 }}>
-              {[
-                ['Fondo inicial', fmt(session.opening_amount)],
-                ['Transacciones', String(session.transaction_count)],
-                ['Efectivo ventas', fmt(cashSales)],
-              ].map(([l, v]) => (
-                <div key={l} style={{ background:'rgba(0,0,0,.2)', borderRadius:8, padding:'8px 10px' }}>
-                  <div style={{ fontSize:10, color:'#8899BB' }}>{l}</div>
-                  <div style={{ fontSize:14, fontWeight:700 }}>{v}</div>
-                </div>
-              ))}
-            </div>
-
-            {session.payment_summary && Object.values(session.payment_summary).some((v: any) => v > 0) && (
-              <div style={{ marginBottom:14 }}>
-                <div style={{ fontSize:11, color:'#8899BB', marginBottom:6 }}>Ventas por método</div>
-                <div style={{ display:'flex', gap:6, flexWrap:'wrap' as const }}>
-                  {Object.entries(session.payment_summary)
-                    .filter(([,v]) => (v as number) > 0)
-                    .map(([method, amount]) => (
-                      <div key={method} style={{ background:'rgba(0,0,0,.2)', borderRadius:6, padding:'4px 10px', fontSize:11 }}>
-                        <span style={{ color:'#8899BB' }}>{method === 'cash' ? '💵 ' : method === 'debit' ? '💳 ' : method === 'transfer' ? '📲 ' : method === 'mercadopago' ? '🟢 ' : '💳 '}</span>
-                        <span style={{ fontWeight:600 }}>{fmt(amount as number)}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            <div style={{ display:'flex', gap:8 }}>
-              <button onClick={() => router.push('/pos')} style={{ ...ST.btn, flex:2, padding:11, fontSize:12, background:'linear-gradient(90deg,#004AAD,#5DE0E6)', color:'#fff' }}>
-                💳 Ir al POS
-              </button>
-              <button onClick={() => setView('close')} style={{ ...ST.btn, flex:1, padding:11, fontSize:12, background:'rgba(239,68,68,.12)', border:'1px solid rgba(239,68,68,.3)', color:'#EF4444' }}>
-                🔒 Cerrar caja
-              </button>
-            </div>
-          </div>
-        ) : (
+        {/* Sesiones activas */}
+        {sessions.length === 0 ? (
           <div style={{ ...ST.card, textAlign:'center', padding:'36px 20px' }}>
             <div style={{ fontSize:44, marginBottom:10 }}>🏪</div>
             <div style={{ fontSize:16, fontWeight:700, marginBottom:6 }}>No hay caja abierta</div>
             <div style={{ fontSize:12, color:'#8899BB', marginBottom:20 }}>
               Debes abrir la caja antes de registrar ventas
             </div>
-            <button onClick={() => setView('open')} style={{ ...ST.btn, padding:'11px 28px', fontSize:13, background:'linear-gradient(90deg,#004AAD,#5DE0E6)', color:'#fff' }}>
+            <button onClick={() => { setRegisterName('Caja 1'); setView('open') }} style={{ ...ST.btn, padding:'11px 28px', fontSize:13, background:'linear-gradient(90deg,#004AAD,#5DE0E6)', color:'#fff' }}>
               🏪 Abrir caja ahora
             </button>
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:10 }}>
+            {sessions.map(sess => (
+              <div key={sess.id} style={ST.cardGreen}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ width:10, height:10, borderRadius:'50%', background:'#22C55E', boxShadow:'0 0 8px rgba(34,197,94,.6)' }} />
+                      <span style={{ fontSize:15, fontWeight:700 }}>{sess.register_name}</span>
+                      <span style={{ fontSize:11, color:'#22C55E', fontWeight:600 }}>EN LÍNEA</span>
+                    </div>
+                    <div style={{ fontSize:11, color:'#8899BB', marginTop:4 }}>
+                      Abierta a las {fmtTime(sess.opened_at)} · {sess.opened_by_name}
+                    </div>
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:11, color:'#8899BB' }}>Ventas del día</div>
+                    <div style={{ fontSize:22, fontWeight:800, color:'#5DE0E6' }}>{fmt(sess.total_sales)}</div>
+                  </div>
+                </div>
+
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14 }}>
+                  {[
+                    ['Fondo inicial',   fmt(sess.opening_amount)],
+                    ['Transacciones',   String(sess.transaction_count)],
+                    ['Efectivo ventas', fmt(sess.payment_summary?.cash || 0)],
+                  ].map(([l, v]) => (
+                    <div key={l} style={{ background:'rgba(0,0,0,.2)', borderRadius:8, padding:'8px 10px' }}>
+                      <div style={{ fontSize:10, color:'#8899BB' }}>{l}</div>
+                      <div style={{ fontSize:14, fontWeight:700 }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {sess.payment_summary && Object.values(sess.payment_summary).some((v: any) => v > 0) && (
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:11, color:'#8899BB', marginBottom:6 }}>Ventas por método</div>
+                    <div style={{ display:'flex', gap:6, flexWrap:'wrap' as const }}>
+                      {Object.entries(sess.payment_summary).filter(([,v]) => (v as number) > 0).map(([method, amount]) => (
+                        <div key={method} style={{ background:'rgba(0,0,0,.2)', borderRadius:6, padding:'4px 10px', fontSize:11 }}>
+                          <span style={{ color:'#8899BB' }}>{method === 'cash' ? '💵 ' : method === 'debit' ? '💳 ' : method === 'transfer' ? '📲 ' : method === 'mercadopago' ? '🟢 ' : '💳 '}</span>
+                          <span style={{ fontWeight:600 }}>{fmt(amount as number)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display:'flex', gap:8 }}>
+                  <button onClick={() => router.push('/pos')} style={{ ...ST.btn, flex:2, padding:11, fontSize:12, background:'linear-gradient(90deg,#004AAD,#5DE0E6)', color:'#fff' }}>
+                    💳 Ir al POS
+                  </button>
+                  <button onClick={() => { setSessionToClose(sess); setView('close') }} style={{ ...ST.btn, flex:1, padding:11, fontSize:12, background:'rgba(239,68,68,.12)', border:'1px solid rgba(239,68,68,.3)', color:'#EF4444' }}>
+                    🔒 Cerrar caja
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
         {/* Acciones rápidas */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
-          <button onClick={() => setView('open')} disabled={!!session}
-            style={{ ...ST.btn, padding:14, fontSize:12, background:'#1A2540', border:'1px solid rgba(93,224,230,.12)', color: session ? '#8899BB' : '#F0F4FF', opacity: session ? .4 : 1 }}>
+          <button onClick={() => { setRegisterName('Caja ' + (sessions.length + 1)); setView('open') }}
+            style={{ ...ST.btn, padding:14, fontSize:12, background:'#1A2540', border:'1px solid rgba(93,224,230,.12)', color:'#F0F4FF' }}>
             <div style={{ fontSize:22, marginBottom:4 }}>🏪</div>
             Abrir caja
           </button>
