@@ -42,8 +42,6 @@ function calcArqueo(a: Arqueo) {
 // ============================================================
 const ST = {
   page:   { minHeight:'100vh', background:'var(--mp-bg, #0A1628)', fontFamily:'Montserrat,sans-serif', color:'var(--mp-text, #F0F4FF)' } as React.CSSProperties,
-  topbar: { height:50, background:'#111827', borderBottom:'1px solid rgba(93,224,230,.12)', display:'flex', alignItems:'center', padding:'0 20px', gap:12 } as React.CSSProperties,
-  logo:   { width:28, height:28, borderRadius:7, background:'linear-gradient(135deg,#004AAD,#5DE0E6)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', cursor:'pointer', flexShrink:0 } as React.CSSProperties,
   body:   { maxWidth:820, margin:'0 auto', padding:'28px 20px' } as React.CSSProperties,
   card:   { background:'#111827', border:'1px solid rgba(93,224,230,.12)', borderRadius:12, padding:'20px 22px', marginBottom:14 } as React.CSSProperties,
   // Variantes de card sin conflictos:
@@ -87,7 +85,7 @@ function PinModal({ onClose, pendingAction, registerName, pinDots, inputRef, onI
         </div>
 
         <div style={{ display:'flex', justifyContent:'center', gap:8, marginBottom:14 }}>
-          {[0,1,2,3,4,5].map(i => (
+          {[0,1,2,3].map(i => (
             <div key={i} style={{
               width:12, height:12, borderRadius:'50%',
               background: i < pinDots ? '#5DE0E6' : 'rgba(93,224,230,.12)',
@@ -351,8 +349,8 @@ export default function CajaPage() {
     pinValueRef.current = raw     // guardar en ref (sin re-render)
     setPinDots(raw.length)        // solo los dots provocan re-render (muy leve)
     if (raw.length > 0) setPinError('')
-    // Auto-confirmar al llegar a 6 dígitos
-    if (raw.length === 6) confirmPin()
+    // Auto-confirmar al llegar a 4 dígitos
+    if (raw.length === 4) confirmPin()
   }
 
   function handlePinKey(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -367,10 +365,6 @@ export default function CajaPage() {
   if (closeResult) return (
     <div style={ST.page}>
       {showPinModal && <PinModal onClose={() => setShowPinModal(false)} pendingAction={pendingAction} registerName={registerName} pinDots={pinDots} inputRef={pinInputRef} onInput={handlePinInput} onKeyDown={handlePinKey} pinError={pinError} onConfirm={confirmPin} loading={pinLoading} />}
-      <div style={ST.topbar}>
-        <div style={ST.logo} onClick={() => router.push('/dashboard')}>MP</div>
-        <span style={{ fontWeight:700, fontSize:13 }}>Cierre de Caja</span>
-      </div>
       <div style={ST.body}>
         {/* Estado general */}
         {Math.abs(closeResult.difference) < 1000 ? (
@@ -462,13 +456,8 @@ export default function CajaPage() {
   if (view === 'open') return (
     <div style={ST.page}>
       {showPinModal && <PinModal onClose={() => setShowPinModal(false)} pendingAction={pendingAction} registerName={registerName} pinDots={pinDots} inputRef={pinInputRef} onInput={handlePinInput} onKeyDown={handlePinKey} pinError={pinError} onConfirm={confirmPin} loading={pinLoading} />}
-      <div style={ST.topbar}>
-        <div style={ST.logo} onClick={() => router.push('/dashboard')}>MP</div>
-        <span style={{ fontWeight:700, fontSize:13 }}>Apertura de Caja</span>
-        <div style={{ flex:1 }} />
-        <button onClick={() => setView('main')} style={{ ...ST.btn, background:'transparent', border:'1px solid rgba(93,224,230,.2)', color:'#8899BB', padding:'4px 12px', fontSize:11 }}>← Volver</button>
-      </div>
       <div style={ST.body}>
+        <button onClick={() => setView('main')} style={{ ...ST.btn, background:'transparent', border:'1px solid rgba(93,224,230,.2)', color:'#8899BB', padding:'4px 12px', fontSize:11, marginBottom:16 }}>← Volver</button>
         <div style={ST.card}>
           <div style={{ fontSize:15, fontWeight:700, marginBottom:18, color:'#5DE0E6' }}>🏪 Abrir nueva caja</div>
 
@@ -532,13 +521,8 @@ export default function CajaPage() {
   if (view === 'close' && session) return (
     <div style={ST.page}>
       {showPinModal && <PinModal onClose={() => setShowPinModal(false)} pendingAction={pendingAction} registerName={registerName} pinDots={pinDots} inputRef={pinInputRef} onInput={handlePinInput} onKeyDown={handlePinKey} pinError={pinError} onConfirm={confirmPin} loading={pinLoading} />}
-      <div style={ST.topbar}>
-        <div style={ST.logo} onClick={() => router.push('/dashboard')}>MP</div>
-        <span style={{ fontWeight:700, fontSize:13 }}>Cierre de Caja — {session.register_name}</span>
-        <div style={{ flex:1 }} />
-        <button onClick={() => setView('main')} style={{ ...ST.btn, background:'transparent', border:'1px solid rgba(93,224,230,.2)', color:'#8899BB', padding:'4px 12px', fontSize:11 }}>← Volver</button>
-      </div>
       <div style={ST.body}>
+        <button onClick={() => setView('main')} style={{ ...ST.btn, background:'transparent', border:'1px solid rgba(93,224,230,.2)', color:'#8899BB', padding:'4px 12px', fontSize:11, marginBottom:16 }}>← Volver</button>
 
         {/* Resumen del día */}
         <div style={ST.card}>
@@ -694,13 +678,8 @@ export default function CajaPage() {
   // ============================================================
   if (view === 'history') return (
     <div style={ST.page}>
-      <div style={ST.topbar}>
-        <div style={ST.logo} onClick={() => router.push('/dashboard')}>MP</div>
-        <span style={{ fontWeight:700, fontSize:13 }}>Historial de Cajas</span>
-        <div style={{ flex:1 }} />
-        <button onClick={() => setView('main')} style={{ ...ST.btn, background:'transparent', border:'1px solid rgba(93,224,230,.2)', color:'#8899BB', padding:'4px 12px', fontSize:11 }}>← Volver</button>
-      </div>
       <div style={ST.body}>
+        <button onClick={() => setView('main')} style={{ ...ST.btn, background:'transparent', border:'1px solid rgba(93,224,230,.2)', color:'#8899BB', padding:'4px 12px', fontSize:11, marginBottom:16 }}>← Volver</button>
         {history.length === 0 ? (
           <div style={{ ...ST.card, textAlign:'center', padding:40, color:'#8899BB' }}>
             <div style={{ fontSize:32, marginBottom:8 }}>📋</div>
@@ -745,17 +724,6 @@ export default function CajaPage() {
   return (
     <div style={ST.page}>
       {showPinModal && <PinModal onClose={() => setShowPinModal(false)} pendingAction={pendingAction} registerName={registerName} pinDots={pinDots} inputRef={pinInputRef} onInput={handlePinInput} onKeyDown={handlePinKey} pinError={pinError} onConfirm={confirmPin} loading={pinLoading} />}
-      <div style={ST.topbar}>
-        <div style={ST.logo} onClick={() => router.push('/dashboard')}>MP</div>
-        <span style={{ fontWeight:700, fontSize:13 }}>Sistema de Caja — {company?.name}</span>
-        <div style={{ flex:1 }} />
-        <button onClick={() => router.push('/pos')} style={{ ...ST.btn, background:'rgba(93,224,230,.08)', border:'1px solid rgba(93,224,230,.2)', color:'#5DE0E6', padding:'4px 14px', fontSize:11 }}>
-          💳 Ir al POS
-        </button>
-        <button onClick={() => router.push('/dashboard')} style={{ ...ST.btn, background:'transparent', border:'1px solid rgba(93,224,230,.25)', color:'#8899BB', padding:'4px 12px', fontSize:11 }}>
-          ← Dashboard
-        </button>
-      </div>
       <div style={ST.body}>
 
         {/* Estado de caja */}
