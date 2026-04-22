@@ -99,6 +99,7 @@ export default function POSPage() {
   const [pmCh, setPmCh] = useState('')
   const [pmFocus, setPmFocus] = useState('ef')
   const [paying, setPaying]   = useState(false)
+  const [pmKey, setPmKey]     = useState(0)
   const efInputRef = useRef<HTMLInputElement>(null)
 
   // Modal recibo
@@ -252,6 +253,7 @@ export default function POSPage() {
   function openPayModal() {
     if (!cart.length) return
     setPmEf(''); setPmDb(''); setPmCr(''); setPmTr(''); setPmMp(''); setPmCh('')
+    setPmKey(k => k + 1)
     setPmFocus('ef')
     setShowPayModal(true)
     setTimeout(() => efInputRef.current?.focus(), 80)
@@ -476,7 +478,7 @@ export default function POSPage() {
 
             {/* 6 métodos fijos */}
             <div style={{ fontSize:10, fontWeight:700, color:'#8899BB', marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px' }}>Métodos de pago</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12 }}>
+            <div key={pmKey} style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12 }}>
               {[
                 { id:'ef', label:'💵 Efectivo',     val:pmEf, set:setPmEf, ref:efInputRef },
                 { id:'db', label:'💳 Débito',        val:pmDb, set:setPmDb },
