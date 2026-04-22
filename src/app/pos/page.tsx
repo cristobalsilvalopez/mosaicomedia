@@ -252,7 +252,7 @@ export default function POSPage() {
   function openPayModal() {
     if (!cart.length) return
     setPmEf(''); setPmDb(''); setPmCr(''); setPmTr(''); setPmMp(''); setPmCh('')
-    setPmFocus('ef')
+    setPmFocus('ef') // all payment fields start at zero — user must enter manually
     setShowPayModal(true)
     setTimeout(() => efInputRef.current?.select(), 80)
   }
