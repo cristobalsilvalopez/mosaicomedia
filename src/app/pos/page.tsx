@@ -252,9 +252,9 @@ export default function POSPage() {
   function openPayModal() {
     if (!cart.length) return
     setPmEf(''); setPmDb(''); setPmCr(''); setPmTr(''); setPmMp(''); setPmCh('')
-    setPmFocus('ef') // all payment fields start at zero — user must enter manually
+    setPmFocus('ef')
     setShowPayModal(true)
-    setTimeout(() => efInputRef.current?.select(), 80)
+    setTimeout(() => efInputRef.current?.focus(), 80)
   }
 
   // Navegación entre métodos de pago con flechas ↑↓
@@ -498,6 +498,7 @@ export default function POSPage() {
                     onFocus={() => setPmFocus(m.id)}
                     onKeyDown={e => handlePayKeyDown(e, m.id)}
                     placeholder="0"
+                    autoComplete="off"
                     style={{ flex:1, border:'none', background:'transparent', fontFamily:'Montserrat,sans-serif', fontSize:16, fontWeight:800, color: parseFloat(m.val) > 0 ? '#F0F4FF' : '#8899BB', textAlign:'right', outline:'none' }}
                   />
                 </div>
@@ -510,12 +511,12 @@ export default function POSPage() {
               <span>Total pagado</span>
               <span style={{ fontWeight:700, color:'#F0F4FF' }}>{fmt(pmTotal)}</span>
             </div>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', borderRadius:8, marginBottom:14, background: pmTotal === 0 ? '#0D1525' : pmDiff >= 0 ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)', border:`1px solid ${pmTotal === 0 ? 'rgba(93,224,230,.08)' : pmDiff >= 0 ? 'rgba(34,197,94,.2)' : 'rgba(239,68,68,.2)'}` }}>
-              <span style={{ fontSize:13, fontWeight:800, color: pmTotal === 0 ? '#8899BB' : pmDiff >= 0 ? '#22C55E' : '#EF4444' }}>
-                {pmTotal === 0 ? 'Diferencia' : pmDiff > 0 ? 'VUELTO' : pmDiff < 0 ? 'FALTA' : '✅ EXACTO'}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', borderRadius:8, marginBottom:14, background: pmDiff > 0 ? 'rgba(34,197,94,.1)' : pmDiff === 0 && pmTotal > 0 ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)', border:`1px solid ${pmDiff > 0 ? 'rgba(34,197,94,.2)' : pmDiff === 0 && pmTotal > 0 ? 'rgba(34,197,94,.2)' : 'rgba(239,68,68,.2)'}` }}>
+              <span style={{ fontSize:13, fontWeight:800, color: pmDiff > 0 ? '#22C55E' : pmDiff === 0 && pmTotal > 0 ? '#22C55E' : '#EF4444' }}>
+                {pmDiff > 0 ? 'VUELTO' : pmDiff === 0 && pmTotal > 0 ? '✅ EXACTO' : 'FALTA'}
               </span>
-              <span style={{ fontSize:22, fontWeight:800, color: pmTotal === 0 ? '#8899BB' : pmDiff >= 0 ? '#22C55E' : '#EF4444' }}>
-                {pmTotal === 0 ? '$0' : pmDiff > 0 ? fmt(pmDiff) : pmDiff < 0 ? `(${fmt(Math.abs(pmDiff))})` : '$0'}
+              <span style={{ fontSize:22, fontWeight:800, color: pmDiff > 0 ? '#22C55E' : pmDiff === 0 && pmTotal > 0 ? '#22C55E' : '#EF4444' }}>
+                {pmDiff > 0 ? fmt(pmDiff) : pmDiff === 0 && pmTotal > 0 ? '$0' : fmt(Math.abs(pmDiff))}
               </span>
             </div>
 
