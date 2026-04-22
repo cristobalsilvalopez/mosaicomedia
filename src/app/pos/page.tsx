@@ -100,7 +100,6 @@ export default function POSPage() {
   const [pmFocus, setPmFocus] = useState('ef')
   const [paying, setPaying]   = useState(false)
   const [pmKey, setPmKey]     = useState(0)
-  const efInputRef = useRef<HTMLInputElement>(null)
 
   // Modal recibo
   const [showReceipt, setShowReceipt] = useState(false)
@@ -256,7 +255,6 @@ export default function POSPage() {
     setPmKey(k => k + 1)
     setPmFocus('ef')
     setShowPayModal(true)
-    setTimeout(() => efInputRef.current?.focus(), 80)
   }
 
   // Navegación entre métodos de pago con flechas ↑↓
@@ -480,7 +478,7 @@ export default function POSPage() {
             <div style={{ fontSize:10, fontWeight:700, color:'#8899BB', marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px' }}>Métodos de pago</div>
             <div key={pmKey} style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12 }}>
               {[
-                { id:'ef', label:'💵 Efectivo',     val:pmEf, set:setPmEf, ref:efInputRef },
+                { id:'ef', label:'💵 Efectivo',     val:pmEf, set:setPmEf },
                 { id:'db', label:'💳 Débito',        val:pmDb, set:setPmDb },
                 { id:'cr', label:'💳 Crédito',       val:pmCr, set:setPmCr },
                 { id:'tr', label:'📲 Transferencia', val:pmTr, set:setPmTr },
