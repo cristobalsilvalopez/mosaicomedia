@@ -806,9 +806,9 @@ export default function CajaPage() {
         {/* Acciones rápidas */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
           <button onClick={() => { setRegisterName('Caja ' + (sessions.length + 1)); setView('open') }}
-            style={{ ...ST.btn, padding:14, fontSize:12, background:'#1A2540', border:'1px solid rgba(93,224,230,.12)', color:'#F0F4FF' }}>
+            style={{ ...ST.btn, padding:14, fontSize:12, background:'rgba(0,74,173,.2)', border:'1px solid rgba(93,224,230,.35)', color:'#5DE0E6', fontWeight:700 }}>
             <div style={{ fontSize:22, marginBottom:4 }}>🏪</div>
-            Abrir caja
+            + Abrir caja
           </button>
           <button onClick={() => setView('history')}
             style={{ ...ST.btn, padding:14, fontSize:12, background:'#1A2540', border:'1px solid rgba(93,224,230,.12)', color:'#F0F4FF' }}>
