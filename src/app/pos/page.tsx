@@ -99,7 +99,7 @@ export default function POSPage() {
   const [pmCh, setPmCh] = useState('')
   const [pmFocus, setPmFocus] = useState('ef')
   const [paying, setPaying]   = useState(false)
-  const hiddenPayInput = useRef<HTMLInputElement>(null)
+  const modalDivRef = useRef<HTMLDivElement>(null)
 
   // Modal recibo
   const [showReceipt, setShowReceipt] = useState(false)
@@ -254,37 +254,27 @@ export default function POSPage() {
     setPmEf(''); setPmDb(''); setPmCr(''); setPmTr(''); setPmMp(''); setPmCh('')
     setPmFocus('ef')
     setShowPayModal(true)
-    setTimeout(() => {
-      if (hiddenPayInput.current) { hiddenPayInput.current.value = ''; hiddenPayInput.current.focus() }
-    }, 50)
   }
 
-  const pmSetters: Record<string, (v:string)=>void> = { ef:setPmEf, db:setPmDb, cr:setPmCr, tr:setPmTr, mp:setPmMp, ch:setPmCh }
-  const pmValues:  Record<string, string>           = { ef:pmEf, db:pmDb, cr:pmCr, tr:pmTr, mp:pmMp, ch:pmCh }
-
-  function activatePmField(id: string) {
-    setPmFocus(id)
-    if (hiddenPayInput.current) {
-      hiddenPayInput.current.value = pmValues[id] || ''
-      hiddenPayInput.current.focus()
+  // Keyboard handler on the modal div — no inputs, no autofill possible
+  function handleModalKey(e: React.KeyboardEvent) {
+    const digit = e.key.match(/^[0-9]$/)
+    if (digit) {
+      const setters: Record<string,React.Dispatch<React.SetStateAction<string>>> = { ef:setPmEf, db:setPmDb, cr:setPmCr, tr:setPmTr, mp:setPmMp, ch:setPmCh }
+      setters[pmFocus]?.(prev => prev + digit[0])
+      return
     }
-  }
-
-  function handleHiddenPayInput(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value.replace(/[^0-9]/g, '')
-    e.target.value = v
-    pmSetters[pmFocus]?.(v)
-  }
-
-  // Navegación entre métodos de pago con flechas ↑↓
-  function handlePayKeyDown(e: React.KeyboardEvent, currentId: string) {
+    if (e.key === 'Backspace') {
+      const setters: Record<string,React.Dispatch<React.SetStateAction<string>>> = { ef:setPmEf, db:setPmDb, cr:setPmCr, tr:setPmTr, mp:setPmMp, ch:setPmCh }
+      setters[pmFocus]?.(prev => prev.slice(0, -1))
+      return
+    }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
-      const idx = PM_IDS.indexOf(currentId)
-      const next = e.key === 'ArrowDown'
-        ? PM_IDS[(idx + 1) % PM_IDS.length]
-        : PM_IDS[(idx - 1 + PM_IDS.length) % PM_IDS.length]
-      activatePmField(next)
+      const idx = PM_IDS.indexOf(pmFocus)
+      const next = e.key === 'ArrowDown' ? PM_IDS[(idx+1)%PM_IDS.length] : PM_IDS[(idx-1+PM_IDS.length)%PM_IDS.length]
+      setPmFocus(next)
+      return
     }
     if (e.key === 'Enter' && canPay) { e.preventDefault(); completeSale() }
     if (e.key === 'Escape') { e.preventDefault(); setShowPayModal(false) }
@@ -464,7 +454,9 @@ export default function POSPage() {
       {/* ===== MODAL COBRO ===== */}
       {showPayModal && (
         <div style={s.overlay} onClick={e => { if (e.target === e.currentTarget) setShowPayModal(false) }}>
-          <div style={{ ...s.modal, width:440, padding:'20px 22px' }}>
+          <div ref={(el) => { (modalDivRef as any).current = el; if (el) setTimeout(() => el.focus(), 30) }}
+          tabIndex={0} onKeyDown={handleModalKey}
+          style={{ ...s.modal, width:440, padding:'20px 22px', outline:'none' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
               <span style={{ fontSize:15, fontWeight:700 }}>💳 Cobro de venta</span>
               <span style={{ fontSize:10, color:'#8899BB' }}>↑↓ navegar · Enter confirmar · Esc volver</span>
@@ -491,17 +483,6 @@ export default function POSPage() {
 
             {/* 6 métodos fijos */}
             <div style={{ fontSize:10, fontWeight:700, color:'#8899BB', marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px' }}>Métodos de pago</div>
-            {/* Hidden capture input — only real input in the modal, never autofilled */}
-            <input
-              ref={hiddenPayInput}
-              type="text"
-              inputMode="numeric"
-              autoComplete="new-password"
-              tabIndex={-1}
-              onChange={handleHiddenPayInput}
-              onKeyDown={e => handlePayKeyDown(e, pmFocus)}
-              style={{ position:'absolute', opacity:0, width:1, height:1, pointerEvents:'none', top:0, left:0 }}
-            />
             <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12 }}>
               {[
                 { id:'ef', label:'💵 Efectivo',     val:pmEf },
@@ -511,8 +492,8 @@ export default function POSPage() {
                 { id:'mp', label:'🟢 Mercado Pago',  val:pmMp },
                 { id:'ch', label:'📄 Cheque',        val:pmCh },
               ].map(m => (
-                <div key={m.id} onClick={() => activatePmField(m.id)}
-                  style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 11px', borderRadius:8, cursor:'text', border:`1px solid ${pmFocus === m.id ? 'rgba(93,224,230,.5)' : 'rgba(93,224,230,.08)'}`, background: pmFocus === m.id ? 'rgba(0,74,173,.15)' : '#1A2540', transition:'all .1s', userSelect:'none' }}
+                <div key={m.id} onClick={() => setPmFocus(m.id)}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 11px', borderRadius:8, cursor:'pointer', border:`1px solid ${pmFocus === m.id ? 'rgba(93,224,230,.5)' : 'rgba(93,224,230,.08)'}`, background: pmFocus === m.id ? 'rgba(0,74,173,.15)' : '#1A2540', transition:'all .1s', userSelect:'none' }}
                 >
                   <span style={{ fontSize:11, fontWeight:600, color: pmFocus === m.id ? '#F0F4FF' : '#8899BB', width:120, flexShrink:0 }}>{m.label}</span>
                   <span style={{ flex:1, fontFamily:'Montserrat,sans-serif', fontSize:16, fontWeight:800, color: parseFloat(m.val) > 0 ? '#F0F4FF' : '#8899BB', textAlign:'right', display:'block' }}>
