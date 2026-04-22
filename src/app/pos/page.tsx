@@ -99,7 +99,7 @@ export default function POSPage() {
   const [pmCh, setPmCh] = useState('')
   const [pmFocus, setPmFocus] = useState('ef')
   const [paying, setPaying]   = useState(false)
-  const [pmKey, setPmKey]     = useState(0)
+  const hiddenPayInput = useRef<HTMLInputElement>(null)
 
   // Modal recibo
   const [showReceipt, setShowReceipt] = useState(false)
@@ -252,9 +252,28 @@ export default function POSPage() {
   function openPayModal() {
     if (!cart.length) return
     setPmEf(''); setPmDb(''); setPmCr(''); setPmTr(''); setPmMp(''); setPmCh('')
-    setPmKey(k => k + 1)
     setPmFocus('ef')
     setShowPayModal(true)
+    setTimeout(() => {
+      if (hiddenPayInput.current) { hiddenPayInput.current.value = ''; hiddenPayInput.current.focus() }
+    }, 50)
+  }
+
+  const pmSetters: Record<string, (v:string)=>void> = { ef:setPmEf, db:setPmDb, cr:setPmCr, tr:setPmTr, mp:setPmMp, ch:setPmCh }
+  const pmValues:  Record<string, string>           = { ef:pmEf, db:pmDb, cr:pmCr, tr:pmTr, mp:pmMp, ch:pmCh }
+
+  function activatePmField(id: string) {
+    setPmFocus(id)
+    if (hiddenPayInput.current) {
+      hiddenPayInput.current.value = pmValues[id] || ''
+      hiddenPayInput.current.focus()
+    }
+  }
+
+  function handleHiddenPayInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value.replace(/[^0-9]/g, '')
+    e.target.value = v
+    pmSetters[pmFocus]?.(v)
   }
 
   // Navegación entre métodos de pago con flechas ↑↓
@@ -265,11 +284,7 @@ export default function POSPage() {
       const next = e.key === 'ArrowDown'
         ? PM_IDS[(idx + 1) % PM_IDS.length]
         : PM_IDS[(idx - 1 + PM_IDS.length) % PM_IDS.length]
-      setPmFocus(next)
-      setTimeout(() => {
-        const el = document.getElementById(`pm-input-${next}`)
-        if (el) { (el as HTMLInputElement).focus(); (el as HTMLInputElement).select() }
-      }, 20)
+      activatePmField(next)
     }
     if (e.key === 'Enter' && canPay) { e.preventDefault(); completeSale() }
     if (e.key === 'Escape') { e.preventDefault(); setShowPayModal(false) }
@@ -476,37 +491,37 @@ export default function POSPage() {
 
             {/* 6 métodos fijos */}
             <div style={{ fontSize:10, fontWeight:700, color:'#8899BB', marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px' }}>Métodos de pago</div>
-            <div key={pmKey} style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12 }}>
+            {/* Hidden capture input — only real input in the modal, never autofilled */}
+            <input
+              ref={hiddenPayInput}
+              type="text"
+              inputMode="numeric"
+              autoComplete="new-password"
+              tabIndex={-1}
+              onChange={handleHiddenPayInput}
+              onKeyDown={e => handlePayKeyDown(e, pmFocus)}
+              style={{ position:'absolute', opacity:0, width:1, height:1, pointerEvents:'none', top:0, left:0 }}
+            />
+            <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12 }}>
               {[
-                { id:'ef', label:'💵 Efectivo',     val:pmEf, set:setPmEf },
-                { id:'db', label:'💳 Débito',        val:pmDb, set:setPmDb },
-                { id:'cr', label:'💳 Crédito',       val:pmCr, set:setPmCr },
-                { id:'tr', label:'📲 Transferencia', val:pmTr, set:setPmTr },
-                { id:'mp', label:'🟢 Mercado Pago',  val:pmMp, set:setPmMp },
-                { id:'ch', label:'📄 Cheque',        val:pmCh, set:setPmCh },
+                { id:'ef', label:'💵 Efectivo',     val:pmEf },
+                { id:'db', label:'💳 Débito',        val:pmDb },
+                { id:'cr', label:'💳 Crédito',       val:pmCr },
+                { id:'tr', label:'📲 Transferencia', val:pmTr },
+                { id:'mp', label:'🟢 Mercado Pago',  val:pmMp },
+                { id:'ch', label:'📄 Cheque',        val:pmCh },
               ].map(m => (
-                <div key={m.id} onClick={() => { setPmFocus(m.id); document.getElementById(`pm-input-${m.id}`)?.focus() }}
-                  style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 11px', borderRadius:8, cursor:'text', border:`1px solid ${pmFocus === m.id ? 'rgba(93,224,230,.5)' : 'rgba(93,224,230,.08)'}`, background: pmFocus === m.id ? 'rgba(0,74,173,.15)' : '#1A2540', transition:'all .1s' }}
+                <div key={m.id} onClick={() => activatePmField(m.id)}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 11px', borderRadius:8, cursor:'text', border:`1px solid ${pmFocus === m.id ? 'rgba(93,224,230,.5)' : 'rgba(93,224,230,.08)'}`, background: pmFocus === m.id ? 'rgba(0,74,173,.15)' : '#1A2540', transition:'all .1s', userSelect:'none' }}
                 >
                   <span style={{ fontSize:11, fontWeight:600, color: pmFocus === m.id ? '#F0F4FF' : '#8899BB', width:120, flexShrink:0 }}>{m.label}</span>
-                  <input
-                    id={`pm-input-${m.id}`}
-                    ref={(m as any).ref}
-                    type="text"
-                    inputMode="numeric"
-                    value={m.val}
-                    onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); m.set(v) }}
-                    onFocus={() => setPmFocus(m.id)}
-                    onKeyDown={e => handlePayKeyDown(e, m.id)}
-                    placeholder="0"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    style={{ flex:1, border:'none', background:'transparent', fontFamily:'Montserrat,sans-serif', fontSize:16, fontWeight:800, color: parseFloat(m.val) > 0 ? '#F0F4FF' : '#8899BB', textAlign:'right', outline:'none' }}
-                  />
+                  <span style={{ flex:1, fontFamily:'Montserrat,sans-serif', fontSize:16, fontWeight:800, color: parseFloat(m.val) > 0 ? '#F0F4FF' : '#8899BB', textAlign:'right', display:'block' }}>
+                    {m.val || '0'}{pmFocus === m.id ? <span style={{ borderRight:'2px solid #5DE0E6', marginLeft:1, animation:'blink 1s step-end infinite' }}>&nbsp;</span> : null}
+                  </span>
                 </div>
               ))}
             </div>
+            <style>{`@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}`}</style>
 
             {/* Estado dinámico */}
             <div style={{ height:'0.5px', background:'rgba(93,224,230,.1)', marginBottom:10 }} />
