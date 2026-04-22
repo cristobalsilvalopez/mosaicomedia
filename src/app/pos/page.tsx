@@ -422,7 +422,6 @@ export default function POSPage() {
     overlay:   { position:'fixed', inset:0, background:'rgba(0,0,0,.85)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Montserrat,sans-serif' },
     modal:     { background:'#111827', border:'1px solid rgba(93,224,230,.3)', borderRadius:16, padding:24, color:'#F0F4FF', maxHeight:'92vh', overflowY:'auto' },
     root:      { height:'100vh', display:'flex', flexDirection:'column', background:'var(--mp-bg, #0A1628)', fontFamily:'Montserrat,sans-serif', color:'var(--mp-text, #F0F4FF)', userSelect: isDragging ? 'none' : 'auto' },
-    topbar:    { height:50, background:'#111827', borderBottom:'1px solid rgba(93,224,230,.12)', display:'flex', alignItems:'center', padding:'0 14px', gap:10, flexShrink:0 },
     body:      { flex:1, display:'flex', overflow:'hidden' },
     left:      { flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 },
     searchBar: { padding:'8px 14px', background:'#111827', borderBottom:'1px solid rgba(93,224,230,.08)', flexShrink:0 },
@@ -532,88 +531,94 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* ===== MODAL RECIBO COMPLETO ===== */}
+      {/* ===== TOAST RECIBO — esquina superior izquierda ===== */}
       {showReceipt && lastSale && (
-        <div style={s.overlay} onClick={e => { if (e.target === e.currentTarget) setShowReceipt(false) }}>
-          <div style={{ ...s.modal, width:460 }}>
-            {/* Header verde */}
-            <div style={{ textAlign:'center', marginBottom:18 }}>
-              <div style={{ fontSize:38, marginBottom:6 }}>✅</div>
-              <div style={{ fontSize:17, fontWeight:700 }}>Venta Completada</div>
-              <div style={{ fontSize:10, color:'#8899BB', marginTop:4, display:'flex', justifyContent:'center', gap:14 }}>
-                <span>📅 {fmtDate(lastSale.date)}</span>
-                <span>🕐 {fmtTime(lastSale.date)}</span>
-                <span>👤 {lastSale.cashier}</span>
-                <span>🏪 {lastSale.register}</span>
+        <div style={{
+          position:'fixed', top:16, left:72, zIndex:1200,
+          width:340, maxHeight:'90vh',
+          background:'#0E1C30', border:'1px solid rgba(34,197,94,.35)',
+          borderRadius:14, boxShadow:'0 8px 40px rgba(0,0,0,.7)',
+          display:'flex', flexDirection:'column',
+          fontFamily:'Montserrat,sans-serif', color:'#F0F4FF',
+          animation:'slideInLeft .25s cubic-bezier(.4,0,.2,1)',
+        }}>
+          <style>{`@keyframes slideInLeft{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}`}</style>
+
+          {/* Header */}
+          <div style={{ background:'rgba(34,197,94,.12)', borderBottom:'1px solid rgba(34,197,94,.2)', borderRadius:'14px 14px 0 0', padding:'12px 14px' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <div>
+                <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:4 }}>
+                  <span style={{ fontSize:16 }}>✅</span>
+                  <span style={{ fontSize:14, fontWeight:800, color:'#22C55E' }}>Venta completada</span>
+                </div>
+                <div style={{ fontSize:10, color:'#8899BB', display:'flex', flexWrap:'wrap', gap:'4px 10px' }}>
+                  <span>📅 {fmtDate(lastSale.date)}</span>
+                  <span>🕐 {fmtTime(lastSale.date)}</span>
+                  <span>🏪 {lastSale.register}</span>
+                  <span>👤 {lastSale.cashier}</span>
+                </div>
+                <div style={{ fontSize:9, color:'rgba(93,224,230,.4)', marginTop:3, fontFamily:'monospace' }}>REF: {String(lastSale.id).slice(0,16).toUpperCase()}</div>
               </div>
-              <div style={{ fontSize:10, color:'rgba(93,224,230,.5)', marginTop:3, fontFamily:'monospace' }}>
-                REF: {String(lastSale.id).toUpperCase()}
-              </div>
+              <button onClick={() => setShowReceipt(false)} style={{ background:'none', border:'none', color:'#8899BB', cursor:'pointer', fontSize:18, lineHeight:1, padding:'0 0 0 8px' }}>×</button>
             </div>
+          </div>
+
+          {/* Body scrollable */}
+          <div style={{ overflowY:'auto', padding:'12px 14px', flex:1 }}>
 
             {/* Productos */}
-            <div style={{ borderTop:'1px solid rgba(93,224,230,.1)', paddingTop:10, marginBottom:12 }}>
-              <div style={{ fontSize:10, color:'#8899BB', fontWeight:700, marginBottom:8, textTransform:'uppercase', letterSpacing:'.5px' }}>Detalle de productos</div>
-              {lastSale.items.map((item: any, idx: number) => {
-                const t = calcTax(item.sale_price, item.qty, item.tax_type || 'iva')
-                return (
-                  <div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'5px 0', borderBottom:'1px solid rgba(93,224,230,.04)', fontSize:12 }}>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:600 }}>{item.name}</div>
-                      <div style={{ fontSize:10, color:'#8899BB', marginTop:1, display:'flex', gap:8 }}>
-                        <span>{item.qty} × {fmt(item.sale_price)}</span>
-                        {item.tax_type?.startsWith('ila') && <span style={{ color:'#F59E0B' }}>+ILA</span>}
-                        {(item.tax_type === 'cigars' || item.tax_type === 'exempt') && <span style={{ color:'#6B7280' }}>Exento</span>}
-                      </div>
-                    </div>
-                    <span style={{ fontWeight:700, color:'#5DE0E6', marginLeft:12 }}>{fmt(item.sale_price * item.qty)}</span>
+            <div style={{ fontSize:9, color:'#5DE0E6', fontWeight:700, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:6 }}>Productos</div>
+            {lastSale.items.map((item: any, idx: number) => (
+              <div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'4px 0', borderBottom:'1px solid rgba(93,224,230,.06)', fontSize:11 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:600 }}>{item.name}</div>
+                  <div style={{ fontSize:9, color:'#8899BB', marginTop:1, display:'flex', gap:6 }}>
+                    <span>{item.qty} × {fmt(item.sale_price)}</span>
+                    {item.tax_type?.startsWith('ila') && <span style={{ color:'#F59E0B' }}>ILA</span>}
+                    {(item.tax_type === 'cigars' || item.tax_type === 'exempt') && <span style={{ color:'#6B7280' }}>Exento</span>}
                   </div>
-                )
-              })}
-            </div>
+                </div>
+                <span style={{ fontWeight:700, color:'#5DE0E6', marginLeft:10, fontSize:12 }}>{fmt(item.sale_price * item.qty)}</span>
+              </div>
+            ))}
 
-            {/* Resumen tributario */}
-            <div style={{ background:'#0D1525', borderRadius:8, padding:'10px 12px', marginBottom:12, fontSize:11 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', color:'#8899BB', marginBottom:3 }}><span>Neto</span><span>{fmt(lastSale.totals.neto)}</span></div>
-              {lastSale.totals.iva > 0 && <div style={{ display:'flex', justifyContent:'space-between', color:'#8899BB', marginBottom:3 }}><span>IVA (19%)</span><span>{fmt(lastSale.totals.iva)}</span></div>}
-              {lastSale.totals.ila > 0 && <div style={{ display:'flex', justifyContent:'space-between', color:'#F59E0B', marginBottom:3 }}><span>ILA (alcohol)</span><span>{fmt(lastSale.totals.ila)}</span></div>}
-              {lastSale.totals.exento > 0 && <div style={{ display:'flex', justifyContent:'space-between', color:'#8899BB', marginBottom:3 }}><span>Exento IVA</span><span>{fmt(lastSale.totals.exento)}</span></div>}
-              <div style={{ display:'flex', justifyContent:'space-between', fontWeight:800, color:'#5DE0E6', fontSize:15, marginTop:6, paddingTop:6, borderTop:'1px solid rgba(93,224,230,.1)' }}>
+            {/* Impuestos */}
+            <div style={{ background:'#0A1525', borderRadius:8, padding:'8px 10px', margin:'10px 0', fontSize:11 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', color:'#8899BB', marginBottom:2 }}><span>Neto</span><span>{fmt(lastSale.totals.neto)}</span></div>
+              {lastSale.totals.iva > 0   && <div style={{ display:'flex', justifyContent:'space-between', color:'#8899BB', marginBottom:2 }}><span>IVA 19%</span><span>{fmt(lastSale.totals.iva)}</span></div>}
+              {lastSale.totals.ila > 0   && <div style={{ display:'flex', justifyContent:'space-between', color:'#F59E0B', marginBottom:2 }}><span>ILA</span><span>{fmt(lastSale.totals.ila)}</span></div>}
+              {lastSale.totals.exento > 0 && <div style={{ display:'flex', justifyContent:'space-between', color:'#8899BB', marginBottom:2 }}><span>Exento</span><span>{fmt(lastSale.totals.exento)}</span></div>}
+              <div style={{ display:'flex', justifyContent:'space-between', fontWeight:800, color:'#5DE0E6', fontSize:14, marginTop:5, paddingTop:5, borderTop:'1px solid rgba(93,224,230,.1)' }}>
                 <span>TOTAL</span><span>{fmt(lastSale.totals.total)}</span>
               </div>
             </div>
 
             {/* Pagos */}
-            <div style={{ marginBottom:14, fontSize:11 }}>
-              <div style={{ fontSize:10, color:'#8899BB', fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'.5px' }}>Forma de pago</div>
-              {lastSale.payments.map((p: any, idx: number) => (
-                <div key={idx} style={{ display:'flex', justifyContent:'space-between', padding:'3px 0', color:'#8899BB' }}>
-                  <span>{p.label || p.method}</span>
-                  <span style={{ color:'#F0F4FF', fontWeight:600 }}>{fmt(parseFloat(p.amount))}</span>
-                </div>
-              ))}
-              {lastSale.vuelto > 0 && (
-                <div style={{ display:'flex', justifyContent:'space-between', color:'#22C55E', fontWeight:700, marginTop:6, paddingTop:6, borderTop:'1px solid rgba(34,197,94,.15)' }}>
-                  <span>Vuelto entregado</span><span>{fmt(lastSale.vuelto)}</span>
-                </div>
-              )}
-            </div>
+            <div style={{ fontSize:9, color:'#5DE0E6', fontWeight:700, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:5 }}>Forma de pago</div>
+            {lastSale.payments.map((p: any, idx: number) => (
+              <div key={idx} style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'#8899BB', padding:'2px 0' }}>
+                <span>{p.label || p.method}</span>
+                <span style={{ color:'#F0F4FF', fontWeight:600 }}>{fmt(parseFloat(p.amount))}</span>
+              </div>
+            ))}
+            {lastSale.vuelto > 0 && (
+              <div style={{ display:'flex', justifyContent:'space-between', color:'#22C55E', fontWeight:700, fontSize:12, marginTop:5, paddingTop:5, borderTop:'1px solid rgba(34,197,94,.15)' }}>
+                <span>Vuelto</span><span>{fmt(lastSale.vuelto)}</span>
+              </div>
+            )}
+          </div>
 
-            {/* Acciones */}
-            <div style={{ display:'flex', gap:8 }}>
-              <button
-                onClick={() => router.push('/ventas')}
-                style={{ ...s.btn, flex:1, background:'rgba(93,224,230,.08)', border:'1px solid rgba(93,224,230,.2)', color:'#5DE0E6', padding:11, fontSize:11 }}
-              >
-                📋 Ver historial
-              </button>
-              <button
-                onClick={() => setShowReceipt(false)}
-                style={{ ...s.btn, flex:2, background:'linear-gradient(90deg,#004AAD,#5DE0E6)', color:'#fff', padding:11, fontSize:13 }}
-              >
-                💳 Nueva venta (Enter)
-              </button>
-            </div>
+          {/* Footer */}
+          <div style={{ padding:'10px 14px', borderTop:'1px solid rgba(93,224,230,.08)', display:'flex', gap:8 }}>
+            <button onClick={() => router.push('/ventas')}
+              style={{ ...s.btn, flex:1, background:'rgba(93,224,230,.08)', border:'1px solid rgba(93,224,230,.2)', color:'#5DE0E6', padding:'8px 0', fontSize:11 }}>
+              📋 Ver historial
+            </button>
+            <button onClick={() => setShowReceipt(false)}
+              style={{ ...s.btn, flex:2, background:'linear-gradient(90deg,#004AAD,#5DE0E6)', color:'#fff', padding:'8px 0', fontSize:12 }}>
+              💳 Nueva venta
+            </button>
           </div>
         </div>
       )}
@@ -621,10 +626,8 @@ export default function POSPage() {
       {/* ===== PANTALLA PRINCIPAL ===== */}
       <div style={s.root}>
 
-        {/* Topbar */}
-        <div style={s.topbar}>
-          <div onClick={() => router.push('/dashboard')} style={{ width:28, height:28, borderRadius:7, background:'linear-gradient(135deg,#004AAD,#5DE0E6)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0, cursor:'pointer' }}>MP</div>
-          <span style={{ fontWeight:700, fontSize:13 }}>POS · {company?.name}</span>
+        {/* Info strip */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 12px', background:'rgba(10,22,40,.6)', borderBottom:'1px solid rgba(93,224,230,.08)', flexShrink:0 }}>
           <span style={{ fontSize:11, color:'#8899BB' }}>Hola, {user?.first_name}</span>
           {cashSession && (
             <div style={{ display:'flex', alignItems:'center', gap:5, background:'rgba(34,197,94,.1)', border:'1px solid rgba(34,197,94,.25)', borderRadius:20, padding:'2px 10px' }}>
@@ -639,15 +642,6 @@ export default function POSPage() {
             {keyHint('↵', 'Confirmar')}
             {keyHint('F10', 'Nueva pestaña')}
           </div>
-          <button onClick={() => router.push('/caja')} style={{ ...s.btn, background:'rgba(34,197,94,.1)', border:'1px solid rgba(34,197,94,.25)', color:'#22C55E', padding:'4px 10px', fontSize:10 }}>
-            🏪 Caja
-          </button>
-          <button onClick={() => router.push('/ventas')} style={{ ...s.btn, background:'rgba(93,224,230,.08)', border:'1px solid rgba(93,224,230,.2)', color:'#5DE0E6', padding:'4px 10px', fontSize:10 }}>
-            📋 Historial
-          </button>
-          <button onClick={() => router.push('/dashboard')} style={{ ...s.btn, background:'transparent', border:'1px solid rgba(93,224,230,.25)', color:'#5DE0E6', padding:'4px 12px', fontSize:11 }}>
-            ← Dashboard
-          </button>
         </div>
 
         {/* Mensaje de éxito */}
