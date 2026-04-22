@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { getAuthContext, getStoredCompany } from '@/lib/auth-company'
@@ -100,6 +100,14 @@ export default function POSPage() {
   const [pmFocus, setPmFocus] = useState('ef')
   const [paying, setPaying]   = useState(false)
   const modalDivRef = useRef<HTMLDivElement>(null)
+
+  // Guarantee all payment fields are empty whenever the modal opens
+  useLayoutEffect(() => {
+    if (showPayModal) {
+      setPmEf(''); setPmDb(''); setPmCr(''); setPmTr(''); setPmMp(''); setPmCh('')
+      setPmFocus('ef')
+    }
+  }, [showPayModal])
 
   // Modal recibo
   const [showReceipt, setShowReceipt] = useState(false)
