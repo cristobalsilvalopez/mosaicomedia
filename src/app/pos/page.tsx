@@ -492,13 +492,16 @@ export default function POSPage() {
                   <input
                     id={`pm-input-${m.id}`}
                     ref={(m as any).ref}
-                    type="number" min="0"
+                    type="text"
+                    inputMode="numeric"
                     value={m.val}
-                    onChange={e => m.set(e.target.value)}
+                    onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); m.set(v) }}
                     onFocus={() => setPmFocus(m.id)}
                     onKeyDown={e => handlePayKeyDown(e, m.id)}
                     placeholder="0"
                     autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
                     style={{ flex:1, border:'none', background:'transparent', fontFamily:'Montserrat,sans-serif', fontSize:16, fontWeight:800, color: parseFloat(m.val) > 0 ? '#F0F4FF' : '#8899BB', textAlign:'right', outline:'none' }}
                   />
                 </div>
